@@ -7,9 +7,10 @@
     <script>
         function search() {
             let query = document.getElementById("search").value;
-            fetch(`/search?q=${query}`)
+            fetch(`/search?dataset=reduced&q=${query}&columns=auteur.nom`)
                 .then(response => response.json())
                 .then(data => {
+                    console.log("je cherche"+query)
                     let resultsDiv = document.getElementById("results");
                     resultsDiv.innerHTML = "";
                     data.forEach(row => {
