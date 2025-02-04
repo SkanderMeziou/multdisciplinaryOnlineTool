@@ -1,15 +1,17 @@
 from flask import Flask, request, render_template, jsonify
 import pandas as pd
+from pathlib import Path
 
 app = Flask(__name__)
 
 # Load CSV data
-df = pd.read_csv("data.csv")
+input_dir = Path('../data')
+phd_df = pd.read_csv(f"{input_dir}/theses.csv")
 
 
 @app.route("/")
 def index():
-    return render_template("index.html", columns=df.columns.tolist())
+    return render_template("index.html", columns=df.columns)
 
 
 @app.route("/search")
