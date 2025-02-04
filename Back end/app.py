@@ -11,7 +11,7 @@ phd_df = pd.read_csv(f"{input_dir}/theses.csv")
 
 @app.route("/")
 def index():
-    return render_template("index.html", columns=df.columns)
+    return render_template("index.html", columns=phd_df.columns)
 
 
 @app.route("/search")
@@ -19,8 +19,8 @@ def search():
     query = request.args.get("q", "").lower()
     column = request.args.get("column", "")
 
-    if query and column in df.columns:
-        results = df[df[column].astype(str).str.contains(query, case=False, na=False)]
+    if query and column in phd_df.columns:
+        results = phd_df[phd_df[column].astype(str).str.contains(query, case=False, na=False)]
         return jsonify(results.to_dict(orient="records"))
 
     return jsonify([])
