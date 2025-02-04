@@ -24,11 +24,11 @@ def index():
     return render_template("index.html", datasets=datasets_info)
 
 @app.route("/search")
-@app.route("/search")
 def search():
     query = request.args.get("q", "").strip().lower()
     dataset_name = request.args.get("dataset", "")
-    columns = request.args.getlist("columns")  
+    columns_str = request.args.get("columns", "")  # Récupère les colonnes comme une chaîne
+    columns = columns_str.split(",")  # Décompose les colonnes en liste
 
     if dataset_name not in datasets:
         return jsonify({"error": "Dataset not found"}), 400
@@ -41,12 +41,10 @@ def search():
     if not valid_columns:
         return jsonify({"error": "No valid columns specified"}), 400
 
-    # Recherche avec remplacement des NaN
     search_space = df[valid_columns].fillna("").astype(str).agg(" ".join, axis=1)
     mask = search_space.str.contains(query, case=False, na=False)
 
-    # Remplacement des NaN par des chaînes vides dans les résultats
-    results = df[mask].fillna("").to_dict(orient="records")
+    results = df.loc[mask, valid_columns].fillna("").to_dict(orient="records")
     return jsonify(results)
 
 

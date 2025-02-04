@@ -3,45 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CSV Search</title>
-    <script>
-        async function search() {
-            let query = document.getElementById("search").value.trim();
-            let resultsDiv = document.getElementById("results");
-            resultsDiv.innerHTML = "";
-
-            if (query.length === 0) return;
-
-            try {
-                let response = await fetch(`/search?dataset=theses&q=${query}&columns=auteur.nom`);
-                let data = await response.json();
-                console.log(response);
-
-                if (data.error) {
-                    resultsDiv.innerHTML = `<p style="color: red;">⚠️ ${data.error}</p>`;
-                    return;
-                }
-
-                if (data.length === 0) {
-                    resultsDiv.innerHTML = `<p>Aucun résultat trouvé.</p>`;
-                    return;
-                }
-
-                data.forEach(row => {
-                    let entry = document.createElement("p");
-                    entry.textContent = JSON.stringify(row, null, 2);
-                    resultsDiv.appendChild(entry);
-                });
-            } catch (error) {
-                resultsDiv.innerHTML = `<p style="color: red;">🚨 Erreur lors de la recherche.</p>`;
-                console.error("Erreur :", error);
-            }
-        }
-    </script>
+    <title>🔎 Recherche de thésards</title>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </head>
 <body>
-    <h1>🔎 Recherche de thesard</h1>
-    <input type="text" id="search" onkeyup="search()" placeholder="Tapez pour rechercher...">
+    <h1>🔎 Recherche de thésards</h1>
+    <input type="text" id="search" onkeyup="searchThese()" placeholder="Tapez pour rechercher...">
     <div id="results"></div>
 </body>
 </html>
