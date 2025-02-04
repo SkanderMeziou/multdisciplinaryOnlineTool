@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Column Search</title>
+    <script>
+        function search() {
+            let query = document.getElementById("search").value;
+            let column = document.getElementById("column").value;
+
+            fetch(`/search?q=${query}&column=${column}`)
+                .then(response => response.json())
+                .then(data => {
+                    let resultsDiv = document.getElementById("results");
+                    resultsDiv.innerHTML = "";
+                    data.forEach(row => {
+                        let entry = document.createElement("p");
+                        entry.textContent = JSON.stringify(row);
+                        resultsDiv.appendChild(entry);
+                    });
+                });
+        }
+    </script>
+</head>
+<body>
+    <h1>Search CSV Data by Column</h1>
+    <label for="column">Select Column:</label>
+    <select id="column">
+        <option value="name">Name</option>
+        <option value="age">Age</option>
+        <option value="city">City</option>
+    </select>
+
+    <input type="text" id="search" onkeyup="search()" placeholder="Type to search...">
+    <div id="results"></div>
+</body>
+</html>
