@@ -1,3 +1,22 @@
+#results{
+    border-radius: 32px;
+    background-color: aliceblue;
+    width: 24vw;
+    padding: 12px;
+}
+
+#results:empty {
+    padding: 0;
+}
+
+.resultatTheses{
+    border-radius: 100px;
+    padding: 12px;
+}
+.resultatTheses>p{
+    margin: 0px;
+}
+
 .resultatTheses:hover{
     background-color: rgb(161, 211, 255);
 }

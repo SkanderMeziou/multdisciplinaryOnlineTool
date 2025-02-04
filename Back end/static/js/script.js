@@ -35,12 +35,12 @@ async function searchThese() {
             data.forEach(row => {
                 let entry = document.createElement("div");
                 entry.innerHTML = `
-                    <p class=resultatThese>
+                    <p>
                         <strong>${row["auteur.prenom"]} ${row["auteur.nom"]}</strong> 
                         <span style="color: gray;">(${row.discipline || "Discipline inconnue"})</span>
                     </p>
                 `;
-                entry.class = "resultatThese";
+                entry.className = "resultatTheses";
                 resultsDiv.appendChild(entry);
             });
         } catch (error) {
