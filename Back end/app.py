@@ -5,6 +5,21 @@ import plotly.graph_objects as go  # ✅ Ajoute cette ligne !
 import plotly.express as px
 
 app = Flask(__name__)
+#-----------------------------------------------------------------------------------------------------------------------------
+#-----------------------------------------------fonctions utilitaires---------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------------
+
+def arrow(coordX,coordY,color):
+    return dict(
+        x=coordX, y=coordY, xref="x", yref="y",
+        ax=0, ay=0, axref="x", ayref="y",
+        showarrow=True, arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor=color
+    )
+
+
+#-----------------------------------------------------------------------------------------------------------------------------
+#-----------------------------------------------application et routes---------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------------
 
 # Définition du chemin des fichiers de manière robuste
 input_dir = Path(__file__).resolve().parent.parent / "data"
@@ -61,9 +76,28 @@ def search():
     return jsonify(results)
 
 @app.route("/update_graph")
+@app.route("/update_graph")
 def update_graph():
-    fig = go.Figure(data=[go.Scatter(x=[0, 1, 2, 3, 4], y=[0, 1, 4, 9, 16], mode="markers")])
+    fig = go.Figure()
+
+    arrows = [
+        arrow(5,2,"red"),
+        arrow(2,3,"blue"),
+        arrow(1,1.5,"green"),
+        arrow(3, 3, "yellow")  
+    ]
+    for a in arrows: 
+        fig.add_annotation(a)
+
+    fig.update_layout(
+        title="Plot with Lines and Arrows",
+        xaxis_title="X Axis",
+        yaxis_title="Y Axis",
+        showlegend=True
+    )
+
     return fig.to_json()
+
 
 if __name__ == "__main__":
     app.run(debug=True)
