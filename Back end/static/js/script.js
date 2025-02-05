@@ -1,3 +1,4 @@
+
 let debounceTimeout; // Variable pour gérer le délai
 
 async function searchThese() {
@@ -60,3 +61,22 @@ async function searchThese() {
         }
     }, 300); // Délai de 300 ms avant d'exécuter la requête
 }
+
+
+window.updateGraph = async function updateGraph() {
+    console.log("📡 Envoi de la requête AJAX pour le graphique...");
+    
+    try {
+        let response = await fetch("/update_graph");
+        let graphJSON = await response.json();
+        console.log("📊 Graphique reçu, mise à jour...");
+        
+        const graphDiv = document.getElementById("graph");
+        
+        // Utilisez directement graphJSON, qui contient déjà data et layout
+        Plotly.newPlot(graphDiv, graphJSON.data, graphJSON.layout);
+        
+    } catch (error) {
+        console.error("🚨 Erreur lors de la mise à jour du graphique :", error);
+    }
+};

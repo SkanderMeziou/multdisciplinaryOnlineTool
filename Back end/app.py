@@ -1,6 +1,8 @@
 from flask import Flask, request, render_template, jsonify
 import pandas as pd
 from pathlib import Path
+import plotly.graph_objects as go  # ✅ Ajoute cette ligne !
+import plotly.express as px
 
 app = Flask(__name__)
 
@@ -47,6 +49,10 @@ def search():
     results = df.loc[mask, valid_columns].fillna("").to_dict(orient="records")
     return jsonify(results)
 
+@app.route("/update_graph")
+def update_graph():
+    fig = go.Figure(data=[go.Scatter(x=[0, 1, 2, 3, 4], y=[0, 1, 4, 9, 16], mode="markers")])
+    return fig.to_json()
 
 if __name__ == "__main__":
     app.run(debug=True)
