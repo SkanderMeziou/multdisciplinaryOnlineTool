@@ -1,4 +1,3 @@
-
 let debounceTimeout; // Variable pour gérer le délai
 
 async function searchThese() {
@@ -21,7 +20,7 @@ async function searchThese() {
         `;
         resultsDiv.appendChild(loader);
 
-        let url = `/search?dataset=theses&q=${query}&columns=auteur.nom,auteur.prenom,discipline`;
+        let url = `/search?dataset=theses&q=${query}&columns_search=auteur.nom,auteur.prenom`;
         console.log("📡 Envoi de la requête :", url);
 
         try {
@@ -53,30 +52,66 @@ async function searchThese() {
                     </p>
                 `;
                 entry.className = "resultatTheses";
+                entry.onclick = () => showPhD(row);
                 resultsDiv.appendChild(entry);
             });
         } catch (error) {
             resultsDiv.innerHTML = `<p style="color: red;">🚨 Erreur lors de la recherche.</p>`;
             console.error("Erreur :", error);
         }
-    }, 300); // Délai de 300 ms avant d'exécuter la requête
+    }, 1000); // Délai de 300 ms avant d'exécuter la requête
 }
 
 
 window.updateGraph = async function updateGraph() {
     console.log("📡 Envoi de la requête AJAX pour le graphique...");
-    
+
     try {
         let response = await fetch("/update_graph");
         let graphJSON = await response.json();
         console.log("📊 Graphique reçu, mise à jour...");
-        
+
         const graphDiv = document.getElementById("graph");
-        
+
         // Utilisez directement graphJSON, qui contient déjà data et layout
         Plotly.newPlot(graphDiv, graphJSON.data, graphJSON.layout);
-        
+
     } catch (error) {
         console.error("🚨 Erreur lors de la mise à jour du graphique :", error);
     }
 };
+async function showPhD(phdStudent) {
+    console.log("🔍 Affichage de la thèse :", phdStudent);
+    const max_nb_supervisors = 7;
+    let supervisor_names = [];
+    for (let i = 0; i < max_nb_supervisors; i++) {
+        let supervisor_name = phdStudent["directeurs_these."+i+".nom"];
+        console.log("directeurs_these."+i+".nom", supervisor_name);
+        if (supervisor_name) {
+            supervisor_name += " " + phdStudent["directeurs_these."+i+".prenom"];
+            supervisor_names.push(supervisor_name);
+        }
+        else {
+            break;
+        }
+    }
+    let supervisors = [];
+    for (name of supervisor_names){
+        console.log("🔍 Recherche du directeur :", name);
+        let url = `/search?dataset=all_authors&q=${name}&columns_search=name&columns_show=name,id`;
+        console.log("📡 Envoi de la requête :", url);
+        try {
+            let response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            let data = await response.json();
+            console.log("📩 Réponse reçue :", data , " || Nombre de directeurs : ", data.length);
+            supervisors.push(data[0]);
+        }
+        catch (error) {
+            console.error("Erreur :", error);
+        }
+    }
+    console.log(supervisors);
+}

@@ -11,7 +11,7 @@ input_dir = Path(__file__).resolve().parent.parent / "data"
 
 # Chargement sécurisé des fichiers CSV
 datasets = {}
-for filename in ["theses.csv", "reduced.csv"]:
+for filename in ["theses.csv", "reduced.csv", "all_authors.csv"]:
     file_path = input_dir / filename
     if file_path.exists():
         datasets[filename.split(".")[0]] = pd.read_csv(file_path, encoding="utf-8")
@@ -28,25 +28,36 @@ def index():
 @app.route("/search")
 def search():
     query = request.args.get("q", "").strip().lower()
-    dataset_name = request.args.get("dataset", "")
-    columns_str = request.args.get("columns", "")  # Récupère les colonnes comme une chaîne
-    columns = columns_str.split(",")  # Décompose les colonnes en liste
 
+    dataset_name = request.args.get("dataset", "")
     if dataset_name not in datasets:
         return jsonify({"error": "Dataset not found"}), 400
 
+    columns_search_str = request.args.get("columns_search", "") # Récupère les colonnes comme une chaîne
+    columns_search = columns_search_str.split(",")  # Décompose les colonnes en liste
+
+    columns_show_str = request.args.get("columns_show", "") # Récupère les colonnes comme une chaîne
+    columns_show = columns_show_str.split(",")  # Décompose les colonnes en liste
+
     df = datasets[dataset_name]
-    if not columns:
-        columns = df.columns
+    if not columns_search:
+        columns_search = df.columns
+    if columns_show == ['']:
+        print("columns_show is empty")
+        columns_show = df.columns
 
-    valid_columns = [col for col in columns if col in df.columns]
-    if not valid_columns:
-        return jsonify({"error": "No valid columns specified"}), 400
+    valid_search_columns = [col for col in columns_search if col in df.columns]
+    if not valid_search_columns:
+        return jsonify({"error": "No valid search columns specified"}), 400
 
-    search_space = df[valid_columns].fillna("").astype(str).agg(" ".join, axis=1)
+    valid_show_columns = [col for col in columns_show if col in df.columns]
+    if not valid_show_columns:
+        return jsonify({"error": "No valid show columns specified"}), 400
+
+    search_space = df[valid_search_columns].fillna("").astype(str).agg(" ".join, axis=1)
     mask = search_space.str.contains(query, case=False, na=False)
 
-    results = df.loc[mask, valid_columns].fillna("").to_dict(orient="records")
+    results = df.loc[mask, valid_show_columns].fillna("").to_dict(orient="records")
     return jsonify(results)
 
 @app.route("/update_graph")
