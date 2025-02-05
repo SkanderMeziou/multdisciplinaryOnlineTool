@@ -10,12 +10,18 @@
 
 </head>
 <body>
-    <h1>🔎 Recherche de thésards</h1>
-    <input type="text" id="search" onkeyup="searchThese()" placeholder="Tapez pour rechercher...">
-    <div id="results"></div>
-    <button onclick="updateGraph()">creer plot</button>
-    <h1>Graphique Interactif</h1>
-    <div id="graph"></div>
-
+    <div class="container">
+        <div id="researchPart">
+            <h1>🔎 Recherche de thésards</h1>
+            <input type="text" id="search" onkeyup="searchThese()" placeholder="Tapez pour rechercher...">
+            <div id="results"></div>
+        </div>
+        
+        <div id="graphPart">
+            <button onclick="updateGraph()">creer plot</button>
+            <h1>Graphique Interactif</h1>
+            <div id="graph"></div>
+        </div>
+    </div>
 </body>
 </html>
