@@ -10,6 +10,16 @@ async function searchThese() {
 
         if (query.length === 0) return;
 
+        // Ajouter un loader avant d'envoyer la requête
+        let loader = document.createElement("div");
+        loader.className = "loader";
+        loader.innerHTML = `
+            <div></div>
+            <div></div>
+            <div></div>
+        `;
+        resultsDiv.appendChild(loader);
+
         let url = `/search?dataset=theses&q=${query}&columns=auteur.nom,auteur.prenom,discipline`;
         console.log("📡 Envoi de la requête :", url);
 
@@ -21,6 +31,8 @@ async function searchThese() {
             let data = await response.json();
             console.log("📩 Réponse reçue :", data);
 
+            resultsDiv.innerHTML = ""; // Supprimer le loader
+
             if (data.error) {
                 resultsDiv.innerHTML = `<p style="color: red;">⚠️ ${data.error}</p>`;
                 return;
@@ -30,7 +42,6 @@ async function searchThese() {
                 resultsDiv.innerHTML = `<p>Aucun résultat trouvé.</p>`;
                 return;
             }
-            resultsDiv.innerHTML = "";
 
             data.forEach(row => {
                 let entry = document.createElement("div");
