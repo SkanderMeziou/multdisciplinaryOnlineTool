@@ -63,11 +63,10 @@ async function searchThese() {
 }
 
 
-window.updateGraph = async function updateGraph() {
+window.updateGraph = async function updateGraph(supervisor_names) {
     console.log("📡 Envoi de la requête AJAX pour le graphique...");
-
     try {
-        let response = await fetch("/update_graph");
+        let response = await fetch(`/update_graph?q=${supervisor_names}`);
         let graphJSON = await response.json();
         console.log("📊 Graphique reçu, mise à jour...");
 
@@ -83,35 +82,20 @@ window.updateGraph = async function updateGraph() {
 async function showPhD(phdStudent) {
     console.log("🔍 Affichage de la thèse :", phdStudent);
     const max_nb_supervisors = 7;
-    let supervisor_names = [];
+    let supervisor_names = "";
     for (let i = 0; i < max_nb_supervisors; i++) {
         let supervisor_name = phdStudent["directeurs_these."+i+".nom"];
         console.log("directeurs_these."+i+".nom", supervisor_name);
         if (supervisor_name) {
             supervisor_name += " " + phdStudent["directeurs_these."+i+".prenom"];
-            supervisor_names.push(supervisor_name);
+            if(i>0){
+                supervisor_names += ", ";
+            }
+            supervisor_names += supervisor_name ;
         }
         else {
             break;
         }
     }
-    let supervisors = [];
-    for (name of supervisor_names){
-        console.log("🔍 Recherche du directeur :", name);
-        let url = `/search?dataset=all_authors&q=${name}&columns_search=name&columns_show=name,id`;
-        console.log("📡 Envoi de la requête :", url);
-        try {
-            let response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            let data = await response.json();
-            console.log("📩 Réponse reçue :", data , " || Nombre de directeurs : ", data.length);
-            supervisors.push(data[0]);
-        }
-        catch (error) {
-            console.error("Erreur :", error);
-        }
-    }
-    console.log(supervisors);
+    await updateGraph(supervisor_names)
 }
