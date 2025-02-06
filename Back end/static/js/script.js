@@ -69,7 +69,7 @@ window.updateGraph = async function updateGraph(supervisor_names) {
         let response = await fetch(`/update_graph?q=${supervisor_names}`);
         let graphJSON = await response.json();
         console.log("📊 Graphique reçu, mise à jour...");
-
+        console.log("graphJSON", graphJSON);
         const graphDiv = document.getElementById("graph");
 
         // Utilisez directement graphJSON, qui contient déjà data et layout

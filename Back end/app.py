@@ -2,7 +2,6 @@ from flask import Flask, request, render_template, jsonify
 import pandas as pd
 from pathlib import Path
 import plotly.graph_objects as go  # ✅ Ajoute cette ligne !
-import plotly.express as px
 
 app = Flask(__name__)
 
@@ -64,9 +63,7 @@ def search():
 def update_graph():
     query = request.args.get("q", "").strip().lower()
     supervisor_names = query.split(",")
-    # print(supervisor_names)
     researcher_df = datasets["all_authors"]
-    # print(researcher_df.head())
     supervisors = []
     for name in supervisor_names :
         print("🔍 Recherche du directeur :", name)
@@ -76,28 +73,21 @@ def update_graph():
     print("supervisors : ", supervisors)
     auth_vect_df = datasets["auth_vect"]
     index_of_id = researcher_df.columns.get_loc("id")
-    print("index_of_id : ", index_of_id)
     sup_vect = auth_vect_df.loc[
         auth_vect_df["id"].isin([supervisor[index_of_id] for supervisor in supervisors])
     ]
     coordinates_df = datasets["coordinates_15dimensions"]
 
     sup_vect.drop(["id"], axis=1, inplace=True)
-    #drop the first column of coordinates_df
     coordinates_df.drop(coordinates_df.columns[0], axis=1, inplace=True)
-    #print first 2 line of coorsinates_df
-    # print("sup_vect shape : ", sup_vect.shape)
-    # print("coordinates_df shape : ", coordinates_df.shape)
-    # print(coordinates_df.head(2))
-    #print first 2 line of sup_vect
-    # print(sup_vect.head(2))
     matrix_auth = sup_vect.to_numpy()
     matrix_coord = coordinates_df.to_numpy()
-    # dot product of the two dataframes
     dot_product = matrix_auth.dot(matrix_coord)
-    print("dot product shape : ",dot_product.shape)
-    print("dot product :",dot_product)
-    fig = go.Figure(data=[go.Scatter(x=[0, 1, 2, 3, 4], y=[0, 1, 4, 9, 16], mode="markers", hoverlabel=supervisor_names)])
+    x = dot_product[:, 0]
+    y = dot_product[:, 1]
+    print("x", x, x.shape)
+    print("y", y, y.shape)
+    fig = go.Figure(data=[go.Scatter(x=x, y=y, mode="markers")])
     return fig.to_json()
 
 if __name__ == "__main__":
