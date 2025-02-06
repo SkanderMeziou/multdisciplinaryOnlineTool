@@ -1,7 +1,9 @@
+import numpy as np
 from flask import Flask, request, render_template, jsonify
 import pandas as pd
 from pathlib import Path
 import plotly.graph_objects as go  # ✅ Ajoute cette ligne !
+from sklearn.manifold import TSNE
 
 app = Flask(__name__)
 
@@ -61,8 +63,9 @@ def search():
 
 @app.route("/update_graph")
 def update_graph():
-    query = request.args.get("q", "").strip().lower()
-    supervisor_names = query.split(",")
+    supervisor_param = request.args.get("sup", "").strip().lower()
+    phdStudent_param = request.args.get("phd", "").strip().lower()
+    supervisor_names = supervisor_param.split(",")
     researcher_df = datasets["all_authors"]
     supervisors = []
     for name in supervisor_names :
@@ -70,24 +73,57 @@ def update_graph():
         data = researcher_df[researcher_df["name"] == name]
         print("📩 Réponse reçue :", data , " || Nombre de directeurs : ", len(data))
         supervisors.append(data.values[0])
+    student_data = researcher_df[researcher_df["name"] == phdStudent_param].values[0]
     print("supervisors : ", supervisors)
+    print("student_data : ", student_data)
     auth_vect_df = datasets["auth_vect"]
     index_of_id = researcher_df.columns.get_loc("id")
-    sup_vect = auth_vect_df.loc[
+    sup_vectors = auth_vect_df.loc[
         auth_vect_df["id"].isin([supervisor[index_of_id] for supervisor in supervisors])
     ]
+    stud_vector = auth_vect_df.loc[auth_vect_df["id"] == student_data[index_of_id]]
     coordinates_df = datasets["coordinates_15dimensions"]
-
-    sup_vect.drop(["id"], axis=1, inplace=True)
-    coordinates_df.drop(coordinates_df.columns[0], axis=1, inplace=True)
-    matrix_auth = sup_vect.to_numpy()
+    sup_vectors.drop(["id"], axis=1, inplace=True)
+    stud_vector.drop(["id"], axis=1, inplace=True)
+    coordinates_df = coordinates_df.iloc[:, 1:]
+    matrix_auth = sup_vectors.to_numpy()
+    print("Matrix_auth: ", matrix_auth)
+    matrix_stud = stud_vector.to_numpy()
+    print("Matrix_stud: ", matrix_stud)
+    matrix = np.concatenate((matrix_auth, matrix_stud), axis=0)
+    print("Matrix shape : ", matrix.shape)
+    print("Matrix : ", matrix)
     matrix_coord = coordinates_df.to_numpy()
-    dot_product = matrix_auth.dot(matrix_coord)
-    x = dot_product[:, 0]
-    y = dot_product[:, 1]
-    print("x", x, x.shape)
-    print("y", y, y.shape)
-    fig = go.Figure(data=[go.Scatter(x=x, y=y, mode="markers")])
+    print("Matrix_coord shape : ", matrix_coord.shape)
+    dot_product = matrix.dot(matrix_coord)
+    full_coords = np.concatenate((matrix_coord, dot_product), axis=0)
+    print("Dot product shape : ", dot_product.shape)
+
+    embedded = (TSNE(n_components=2, learning_rate='auto', random_state=42, perplexity=5)
+                .fit_transform(full_coords))
+    print("Embedded shape : ", embedded.shape)
+    x = embedded[:, 0].tolist()
+    y = embedded[:, 1].tolist()
+
+    disciplines = auth_vect_df.columns[1:]
+    names = disciplines.tolist()
+    names += supervisor_names
+    names.append(phdStudent_param)
+    print("names : ", names)
+    print("names length : ", len(names))
+    new_columns = disciplines.tolist()+supervisor_names+["student"]
+    row = []
+    # fill the row with the values of the embedded coordinates
+    for i in range(len(x)):
+        row.append( [x[i], y[i]])
+
+    print(new_columns)
+    print(row)
+    colors = ["blue"] * len(disciplines) + ["red"] * len(supervisor_names) + ["green"]
+    sizes = [30] * len(disciplines) + [20] * len(supervisor_names) + [10]
+    text_position = ["top center"] * len(disciplines) + ["bottom left"] * len(supervisor_names) + ["bottom right"]
+    # total_len = len(embedded)
+    fig = go.Figure(go.Scatter(x=x, y=y, mode='markers+text', text=names, textposition=text_position, marker=dict(color=colors, size=sizes)))
     return fig.to_json()
 
 if __name__ == "__main__":
