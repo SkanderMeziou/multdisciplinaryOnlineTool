@@ -63,10 +63,10 @@ async function searchThese() {
 }
 
 
-window.updateGraph = async function updateGraph(supervisor_names) {
+window.updateGraph = async function updateGraph(supervisor_names, phdStudentName) {
     console.log("📡 Envoi de la requête AJAX pour le graphique...");
     try {
-        let response = await fetch(`/update_graph?q=${supervisor_names}`);
+        let response = await fetch(`/update_graph?sup=${supervisor_names}&phd=${phdStudentName}`);
         let graphJSON = await response.json();
         console.log("📊 Graphique reçu, mise à jour...");
         console.log("graphJSON", graphJSON);
@@ -82,6 +82,7 @@ window.updateGraph = async function updateGraph(supervisor_names) {
 async function showPhD(phdStudent) {
     console.log("🔍 Affichage de la thèse :", phdStudent);
     const max_nb_supervisors = 7;
+    const phdStudentName = phdStudent["auteur.prenom"] + " " + phdStudent["auteur.nom"];
     let supervisor_names = "";
     for (let i = 0; i < max_nb_supervisors; i++) {
         let supervisor_name = phdStudent["directeurs_these."+i+".nom"];
@@ -97,5 +98,5 @@ async function showPhD(phdStudent) {
             break;
         }
     }
-    await updateGraph(supervisor_names)
+    await updateGraph(supervisor_names, phdStudentName)
 }
