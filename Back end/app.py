@@ -81,67 +81,64 @@ def search():
 def update_graph():
     supervisor_param = request.args.get("sup", "").strip().lower()
     phdStudent_param = request.args.get("phd", "").strip().lower()
-    supervisor_names = supervisor_param.split(",")
-    researcher_df = datasets["all_authors"]
+    supervisor_param = supervisor_param.split(",")
+    supervisor_names = []
     supervisors = []
-    for name in supervisor_names :
-        print("🔍 Recherche du directeur :", name)
-        data = researcher_df[researcher_df["name"] == name]
-        print("📩 Réponse reçue :", data , " || Nombre de directeurs : ", len(data))
-        supervisors.append(data.values[0])
-    student_data = researcher_df[researcher_df["name"] == phdStudent_param].values[0]
-    print("supervisors : ", supervisors)
-    print("student_data : ", student_data)
-    auth_vect_df = datasets["auth_vect"]
+
+    researcher_df = datasets["all_authors"]
     index_of_id = researcher_df.columns.get_loc("id")
-    sup_vectors = auth_vect_df.loc[
-        auth_vect_df["id"].isin([supervisor[index_of_id] for supervisor in supervisors])
-    ]
-    stud_vector = auth_vect_df.loc[auth_vect_df["id"] == student_data[index_of_id]]
-    coordinates_df = datasets["coordinates_15dimensions"]
-    sup_vectors.drop(["id"], axis=1, inplace=True)
-    stud_vector.drop(["id"], axis=1, inplace=True)
-    coordinates_df = coordinates_df.iloc[:, 1:]
-    matrix_auth = sup_vectors.to_numpy()
-    # print("Matrix_auth: ", matrix_auth)
-    matrix_stud = stud_vector.to_numpy()
-    # print("Matrix_stud: ", matrix_stud)
-    matrix = np.concatenate((matrix_auth, matrix_stud), axis=0)
-    # print("Matrix shape : ", matrix.shape)
-    # print("Matrix : ", matrix)
-    matrix_coord = coordinates_df.to_numpy()
-    # print("Matrix_coord shape : ", matrix_coord.shape)
-    dot_product = matrix.dot(matrix_coord)
-    full_coords = np.concatenate((matrix_coord, dot_product), axis=0)
-    # print("Dot product shape : ", dot_product.shape)
-
-    embedded = (TSNE(n_components=2, learning_rate='auto', random_state=42, perplexity=5)
-                .fit_transform(full_coords))
-    # print("Embedded shape : ", embedded.shape)
-    x = embedded[:, 0].tolist()
-    y = embedded[:, 1].tolist()
-
-    # les premiers vecteurs representnet les disciplines, le dernier represente le phd et cux au milieu representent les superviseurs 
-    
+    auth_vect_df = datasets["auth_vect"]
+    matrix_auth = []
 
     disciplines = auth_vect_df.columns[1:]
     names = disciplines.tolist()
-    names += supervisor_names
-    names.append(phdStudent_param)
-    # print("names : ", names)
-    # print("names length : ", len(names))
-    new_columns = disciplines.tolist()+supervisor_names+["student"]
-    row = []
-    # fill the row with the values of the embedded coordinates
-    for i in range(len(x)):
-        row.append( [x[i], y[i]])
 
-    # print(new_columns)
-    # print(row)
+    if supervisor_names != ['']:
+        for name in supervisor_param :
+            print("🔍 Recherche du directeur :", name)
+            data = researcher_df[researcher_df["name"] == name]
+            print("📩 Réponse reçue :", data , " || Nombre de directeurs : ", len(data))
+            if len(data) > 0:
+                supervisors.append(data.values[0])
+                names.append(name)
+                supervisor_names.append(name)
+        sup_vectors = auth_vect_df.loc[
+            auth_vect_df["id"].isin([supervisor[index_of_id] for supervisor in supervisors])
+        ]
+        sup_vectors.drop(["id"], axis=1, inplace=True)
+        matrix_auth = sup_vectors.to_numpy()
+
+    student_data = researcher_df[researcher_df["name"] == phdStudent_param].values[0]
+    stud_vector = auth_vect_df.loc[auth_vect_df["id"] == student_data[index_of_id]]
+    coordinates_df = datasets["coordinates_15dimensions"]
+
+    stud_vector.drop(["id"], axis=1, inplace=True)
+    coordinates_df = coordinates_df.iloc[:, 1:]
+
+    matrix_stud = stud_vector.to_numpy()
+    # matrix = np.concatenate((matrix_auth, matrix_stud), axis=0)
+
+    matrix_coord = coordinates_df.to_numpy()
+
+    # dot_product = matrix.dot(matrix_coord)
+    # full_coords = np.concatenate((matrix_coord, dot_product), axis=0)
+
+    embedded = (TSNE(n_components=2, learning_rate='auto', random_state=42, perplexity=5)
+                .fit_transform(matrix_coord))
+    matrix_stud = matrix_stud.dot(embedded)
+    if len(matrix_auth) > 0:
+        matrix_auth = matrix_auth.dot(embedded)
+    matrix = np.concatenate((matrix_auth, matrix_stud), axis=0)
+    full_coords = np.concatenate((embedded, matrix), axis=0)
+    x = full_coords[:, 0].tolist()
+    y = full_coords[:, 1].tolist()
+
+    names.append(phdStudent_param)
+
     colors = ["blue"] * len(disciplines) + ["red"] * len(supervisor_names) + ["green"]
     sizes = [30] * len(disciplines) + [20] * len(supervisor_names) + [10]
     text_position = ["top center"] * len(disciplines) + ["bottom left"] * len(supervisor_names) + ["bottom right"]
-    # total_len = len(embedded)
+
     fig = go.Figure(go.Scatter(x=x, y=y, mode='markers+text', text=names, textposition=text_position, marker=dict(color=colors, size=sizes)))
 
     #positionnement des flèches
@@ -151,7 +148,7 @@ def update_graph():
             arrows.append(arrow(x[i],y[i],"red"))
         arrows.append(arrow(x[len(x)-1],y[len(y)-1],"green"))
 
-    for a in arrows: 
+    for a in arrows:
         fig.add_annotation(a)
 
     fig.update_layout(
