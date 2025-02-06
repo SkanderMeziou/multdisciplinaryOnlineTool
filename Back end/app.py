@@ -7,6 +7,22 @@ from sklearn.manifold import TSNE
 
 app = Flask(__name__)
 
+#-----------------------------------------------------------------------------------------------------------------------------
+#-----------------------------------------------fonctions utilitaires---------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------------
+
+def arrow(coordX,coordY,color):
+    return dict(
+        x=coordX, y=coordY, xref="x", yref="y",
+        ax=0, ay=0, axref="x", ayref="y",
+        showarrow=True, arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor=color
+    )
+
+
+#-----------------------------------------------------------------------------------------------------------------------------
+#-----------------------------------------------application et routes---------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------------
+
 # Définition du chemin des fichiers de manière robuste
 input_dir = Path(__file__).resolve().parent.parent / "data"
 
@@ -87,43 +103,64 @@ def update_graph():
     stud_vector.drop(["id"], axis=1, inplace=True)
     coordinates_df = coordinates_df.iloc[:, 1:]
     matrix_auth = sup_vectors.to_numpy()
-    print("Matrix_auth: ", matrix_auth)
+    # print("Matrix_auth: ", matrix_auth)
     matrix_stud = stud_vector.to_numpy()
-    print("Matrix_stud: ", matrix_stud)
+    # print("Matrix_stud: ", matrix_stud)
     matrix = np.concatenate((matrix_auth, matrix_stud), axis=0)
-    print("Matrix shape : ", matrix.shape)
-    print("Matrix : ", matrix)
+    # print("Matrix shape : ", matrix.shape)
+    # print("Matrix : ", matrix)
     matrix_coord = coordinates_df.to_numpy()
-    print("Matrix_coord shape : ", matrix_coord.shape)
+    # print("Matrix_coord shape : ", matrix_coord.shape)
     dot_product = matrix.dot(matrix_coord)
     full_coords = np.concatenate((matrix_coord, dot_product), axis=0)
-    print("Dot product shape : ", dot_product.shape)
+    # print("Dot product shape : ", dot_product.shape)
 
     embedded = (TSNE(n_components=2, learning_rate='auto', random_state=42, perplexity=5)
                 .fit_transform(full_coords))
-    print("Embedded shape : ", embedded.shape)
+    # print("Embedded shape : ", embedded.shape)
     x = embedded[:, 0].tolist()
     y = embedded[:, 1].tolist()
+
+    # les premiers vecteurs representnet les disciplines, le dernier represente le phd et cux au milieu representent les superviseurs 
+    
 
     disciplines = auth_vect_df.columns[1:]
     names = disciplines.tolist()
     names += supervisor_names
     names.append(phdStudent_param)
-    print("names : ", names)
-    print("names length : ", len(names))
+    # print("names : ", names)
+    # print("names length : ", len(names))
     new_columns = disciplines.tolist()+supervisor_names+["student"]
     row = []
     # fill the row with the values of the embedded coordinates
     for i in range(len(x)):
         row.append( [x[i], y[i]])
 
-    print(new_columns)
-    print(row)
+    # print(new_columns)
+    # print(row)
     colors = ["blue"] * len(disciplines) + ["red"] * len(supervisor_names) + ["green"]
     sizes = [30] * len(disciplines) + [20] * len(supervisor_names) + [10]
     text_position = ["top center"] * len(disciplines) + ["bottom left"] * len(supervisor_names) + ["bottom right"]
     # total_len = len(embedded)
     fig = go.Figure(go.Scatter(x=x, y=y, mode='markers+text', text=names, textposition=text_position, marker=dict(color=colors, size=sizes)))
+
+    #positionnement des flèches
+    arrows=[]
+    if((len(x)>len(disciplines)+1)):
+        for i in range(25,len(x)-1):
+            arrows.append(arrow(x[i],y[i],"red"))
+        arrows.append(arrow(x[len(x)-1],y[len(y)-1],"green"))
+
+    for a in arrows: 
+        fig.add_annotation(a)
+
+    fig.update_layout(
+        title="Plot with Lines and Vectors",
+        xaxis_title="X Axis",
+        yaxis_title="Y Axis",
+        showlegend=True
+    )
+
     return fig.to_json()
 
 if __name__ == "__main__":
