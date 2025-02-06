@@ -75,11 +75,10 @@ def search():
     results = df.loc[mask, valid_show_columns].fillna("").to_dict(orient="records")
     return jsonify(results)
 
-@app.route("/update_graph")
+
 @app.route("/update_graph")
 def update_graph():
     fig = go.Figure()
-
     arrows = [
         arrow(5,2,"red"),
         arrow(2,3,"blue"),
@@ -89,6 +88,7 @@ def update_graph():
     for a in arrows: 
         fig.add_annotation(a)
 
+    
     fig.update_layout(
         title="Plot with Lines and Arrows",
         xaxis_title="X Axis",
