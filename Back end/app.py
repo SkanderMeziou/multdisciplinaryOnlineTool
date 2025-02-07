@@ -126,9 +126,10 @@ def update_graph():
     embedded = (TSNE(n_components=2, learning_rate='auto', random_state=42, perplexity=5)
                 .fit_transform(matrix_coord))
     matrix_stud = matrix_stud.dot(embedded)
+    matrix = matrix_stud
     if len(matrix_auth) > 0:
         matrix_auth = matrix_auth.dot(embedded)
-    matrix = np.concatenate((matrix_auth, matrix_stud), axis=0)
+        matrix = np.concatenate((matrix_auth, matrix_stud), axis=0)
     full_coords = np.concatenate((embedded, matrix), axis=0)
     x = full_coords[:, 0].tolist()
     y = full_coords[:, 1].tolist()
@@ -143,7 +144,7 @@ def update_graph():
 
     #positionnement des flèches
     arrows=[]
-    if((len(x)>len(disciplines)+1)):
+    if len(x)>len(disciplines) :
         for i in range(25,len(x)-1):
             arrows.append(arrow(x[i],y[i],"red"))
         arrows.append(arrow(x[len(x)-1],y[len(y)-1],"green"))
@@ -155,7 +156,7 @@ def update_graph():
         title="Plot with Lines and Vectors",
         xaxis_title="X Axis",
         yaxis_title="Y Axis",
-        showlegend=True
+        showlegend=False
     )
 
     return fig.to_json()
