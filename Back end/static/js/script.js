@@ -47,7 +47,7 @@ async function searchThese() {
                 let entry = document.createElement("div");
                 entry.innerHTML = `
                     <p>
-                        <strong>${row["auteur.prenom"]} ${row["auteur.nom"]}</strong> 
+                        <strong>${row["auteur.nom"]} ${row["auteur.prenom"]}</strong> 
                         <span style="color: gray;">(${row.discipline || "Discipline inconnue"})</span>
                     </p>
                 `;
