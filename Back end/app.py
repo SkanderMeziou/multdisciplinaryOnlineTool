@@ -79,12 +79,12 @@ def search():
 
 @app.route("/update_graph")
 def update_graph():
-    supervisor_param = request.args.get("sup", "").strip().lower()
-    phdStudent_param = request.args.get("phd", "").strip().lower()
-    supervisor_param = supervisor_param.split(",")
-    supervisor_names = []
-    supervisors = []
-
+    supervisor_param = request.args.get("sup", "").strip()
+    phdStudent_param = request.args.get("phd", "").strip()
+    
+    supervisor_names = [name.strip() for name in supervisor_param.split(",")] if supervisor_param else []
+    phdStudent_names = [name.strip() for name in phdStudent_param.split(",")] if phdStudent_param else []
+    
     researcher_df = datasets["all_authors"]
     index_of_id = researcher_df.columns.get_loc("id")
     auth_vect_df = datasets["auth_vect"]
@@ -93,61 +93,85 @@ def update_graph():
     disciplines = auth_vect_df.columns[1:]
     names = disciplines.tolist()
 
-    if supervisor_names != ['']:
-        for name in supervisor_param :
+    # Handle supervisors
+    supervisors = []
+    if supervisor_names and supervisor_names[0]:  # Check if there are any supervisors
+        for name in supervisor_names:
             print("🔍 Recherche du directeur :", name)
             data = researcher_df[researcher_df["name"] == name]
-            print("📩 Réponse reçue :", data , " || Nombre de directeurs : ", len(data))
             if len(data) > 0:
                 supervisors.append(data.values[0])
                 names.append(name)
-                supervisor_names.append(name)
-        sup_vectors = auth_vect_df.loc[
-            auth_vect_df["id"].isin([supervisor[index_of_id] for supervisor in supervisors])
-        ]
-        sup_vectors.drop(["id"], axis=1, inplace=True)
-        matrix_auth = sup_vectors.to_numpy()
+        
+        if supervisors:
+            sup_vectors = auth_vect_df.loc[
+                auth_vect_df["id"].isin([supervisor[index_of_id] for supervisor in supervisors])
+            ]
+            sup_vectors.drop(["id"], axis=1, inplace=True)
+            matrix_auth = sup_vectors.to_numpy()
 
-    student_data = researcher_df[researcher_df["name"] == phdStudent_param].values[0]
-    stud_vector = auth_vect_df.loc[auth_vect_df["id"] == student_data[index_of_id]]
+    # Handle PhD students
+    student_vectors = []
+    for student_name in phdStudent_names:
+        student_data = researcher_df[researcher_df["name"] == student_name]
+        if len(student_data) > 0:
+            student = student_data.values[0]
+            stud_vector = auth_vect_df.loc[auth_vect_df["id"] == student[index_of_id]]
+            stud_vector.drop(["id"], axis=1, inplace=True)
+            student_vectors.append(stud_vector.to_numpy())
+            names.append(student_name)
+
     coordinates_df = datasets["coordinates_15dimensions"]
-
-    stud_vector.drop(["id"], axis=1, inplace=True)
     coordinates_df = coordinates_df.iloc[:, 1:]
-
-    matrix_stud = stud_vector.to_numpy()
-    # matrix = np.concatenate((matrix_auth, matrix_stud), axis=0)
-
     matrix_coord = coordinates_df.to_numpy()
 
-    # dot_product = matrix.dot(matrix_coord)
-    # full_coords = np.concatenate((matrix_coord, dot_product), axis=0)
-
-    embedded = (TSNE(n_components=2, learning_rate='auto', random_state=42, perplexity=5)
-                .fit_transform(matrix_coord))
-    matrix_stud = matrix_stud.dot(embedded)
-    matrix = matrix_stud
-    if len(matrix_auth) > 0:
-        matrix_auth = matrix_auth.dot(embedded)
-        matrix = np.concatenate((matrix_auth, matrix_stud), axis=0)
-    full_coords = np.concatenate((embedded, matrix), axis=0)
+    # TSNE transformation
+    embedded = TSNE(n_components=2, learning_rate='auto', 
+                   random_state=42, perplexity=5).fit_transform(matrix_coord)
+    
+    # Project all vectors
+    matrix = None
+    if student_vectors:
+        matrix_stud = np.vstack(student_vectors).dot(embedded)
+        matrix = matrix_stud
+        if len(matrix_auth) > 0:
+            matrix_auth = matrix_auth.dot(embedded)
+            matrix = np.concatenate((matrix_auth, matrix_stud), axis=0)
+    
+    full_coords = np.concatenate((embedded, matrix), axis=0) if matrix is not None else embedded
+    
     x = full_coords[:, 0].tolist()
     y = full_coords[:, 1].tolist()
 
-    names.append(phdStudent_param)
+    # Define colors and sizes
+    colors = ["blue"] * len(disciplines)
+    sizes = [30] * len(disciplines)
+    text_position = ["top center"] * len(disciplines)
+    
+    if len(supervisor_names) > 0 and supervisor_names[0]:
+        colors.extend(["red"] * len(supervisor_names))
+        sizes.extend([20] * len(supervisor_names))
+        text_position.extend(["bottom left"] * len(supervisor_names))
+    
+    colors.extend(["green"] * len(phdStudent_names))
+    sizes.extend([15] * len(phdStudent_names))
+    text_position.extend(["bottom right"] * len(phdStudent_names))
 
-    colors = ["blue"] * len(disciplines) + ["red"] * len(supervisor_names) + ["green"]
-    sizes = [30] * len(disciplines) + [20] * len(supervisor_names) + [10]
-    text_position = ["top center"] * len(disciplines) + ["bottom left"] * len(supervisor_names) + ["bottom right"]
+    fig = go.Figure(go.Scatter(
+        x=x, y=y, 
+        mode='markers+text', 
+        text=names, 
+        textposition=text_position, 
+        marker=dict(color=colors, size=sizes)
+    ))
 
-    fig = go.Figure(go.Scatter(x=x, y=y, mode='markers+text', text=names, textposition=text_position, marker=dict(color=colors, size=sizes)))
-
-    #positionnement des flèches
-    arrows=[]
-    if len(x)>len(disciplines) :
-        for i in range(25,len(x)-1):
-            arrows.append(arrow(x[i],y[i],"red"))
-        arrows.append(arrow(x[len(x)-1],y[len(y)-1],"green"))
+    # Add arrows
+    arrows = []
+    if len(x) > len(disciplines):
+        for i in range(len(disciplines), len(x)-len(phdStudent_names)):
+            arrows.append(arrow(x[i], y[i], "red"))
+        for i in range(len(x)-len(phdStudent_names), len(x)):
+            arrows.append(arrow(x[i], y[i], "green"))
 
     for a in arrows:
         fig.add_annotation(a)

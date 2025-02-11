@@ -26,6 +26,9 @@ body{
 .resultatTheses:hover{
     background-color: rgb(161, 211, 255);
 }
+.resultatTheses:active{
+    background-color: rgb(135, 199, 255);
+}
 
 .loader {
     display: flex;
@@ -92,4 +95,84 @@ body{
 .reportButton:hover{
     background-color:rgb(255, 157, 157);
     transform: scale(1.1);
+}
+.reportButton:active{
+    background-color:rgb(255, 107, 107);
+    transform: scale(1.1);
+}
+.selected-items {
+    margin-top: 20px;
+    padding: 10px;
+    background-color: rgb(241, 247, 253);
+    border-radius: 16px;
+}
+
+.selected-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: white;
+    padding: 8px 12px;
+    margin: 5px 0;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.remove-btn {
+    background: none;
+    border: none;
+    color: #ff4444;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0 5px;
+}
+
+.toggle {
+    position: relative;
+    display: inline-block;
+    margin: 10px 0;
+}
+
+.toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 16px 8px 40px;
+    background-color: #ccc;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: 0.4s;
+}
+
+.slider:before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    width: 26px;
+    height: 26px;
+    background-color: white;
+    border-radius: 50%;
+    transition: 0.4s;
+}
+
+input:checked + .slider {
+    background-color: #2196F3;
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+.controls {
+    margin: 20px 0;
+}
+
+#selectedPhDs:empty{
+    padding:0;
 }

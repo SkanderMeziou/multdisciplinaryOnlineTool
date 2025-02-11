@@ -1,7 +1,10 @@
-let debounceTimeout; // Variable pour gérer le délai
+let selectedPhDs = new Set();
+let showSupervisors = false;
+
+let debounceTimeout;
 
 async function searchThese() {
-    clearTimeout(debounceTimeout); // Annule le dernier timeout si une nouvelle frappe arrive
+    clearTimeout(debounceTimeout);
 
     debounceTimeout = setTimeout(async () => {
         let query = document.getElementById("search").value.trim();
@@ -10,7 +13,6 @@ async function searchThese() {
 
         if (query.length === 0) return;
 
-        // Ajouter un loader avant d'envoyer la requête
         let loader = document.createElement("div");
         loader.className = "loader";
         loader.innerHTML = `
@@ -31,7 +33,7 @@ async function searchThese() {
             let data = await response.json();
             console.log("📩 Réponse reçue :", data);
 
-            resultsDiv.innerHTML = ""; // Supprimer le loader
+            resultsDiv.innerHTML = "";
 
             if (data.error) {
                 resultsDiv.innerHTML = `<p style="color: red;">⚠️ ${data.error}</p>`;
@@ -44,59 +46,115 @@ async function searchThese() {
             }
 
             data.forEach(row => {
-                let entry = document.createElement("div");
-                entry.innerHTML = `
-                    <p>
-                        <strong>${row["auteur.nom"]} ${row["auteur.prenom"]}</strong> 
-                        <span style="color: gray;">(${row.discipline || "Discipline inconnue"})</span>
-                    </p>
-                `;
-                entry.className = "resultatTheses";
-                entry.onclick = () => showPhD(row);
-                resultsDiv.appendChild(entry);
+                if (!isAlreadySelected(row)) {
+                    let entry = document.createElement("div");
+                    entry.innerHTML = `
+                        <p>
+                            <strong>${row["auteur.nom"]} ${row["auteur.prenom"]}</strong> 
+                            <span style="color: gray;">(${row.discipline || "Discipline inconnue"})</span>
+                        </p>
+                    `;
+                    entry.className = "resultatTheses";
+                    entry.onclick = () => addPhD(row);
+                    resultsDiv.appendChild(entry);
+                }
             });
         } catch (error) {
             resultsDiv.innerHTML = `<p style="color: red;">🚨 Erreur lors de la recherche.</p>`;
             console.error("Erreur :", error);
         }
-    }, 1000); // Délai de 300 ms avant d'exécuter la requête
+    }, 1000);
 }
 
+function isAlreadySelected(phd) {
+    const fullName = `${phd["auteur.prenom"]} ${phd["auteur.nom"]}`;
+    return Array.from(selectedPhDs).some(selected => 
+        `${selected["auteur.prenom"]} ${selected["auteur.nom"]}` === fullName
+    );
+}
 
-window.updateGraph = async function updateGraph(supervisor_names, phdStudentName) {
+function addPhD(phdStudent) {
+    selectedPhDs.add(phdStudent);
+    updateSelectedList();
+    updateGraphWithAllPhDs();
+}
+
+function removePhD(fullName) {
+    // Trouve le PhD à supprimer basé sur son nom complet
+    for (let phd of selectedPhDs) {
+        if (`${phd["auteur.prenom"]} ${phd["auteur.nom"]}` === fullName) {
+            selectedPhDs.delete(phd);
+            break;
+        }
+    }
+    updateSelectedList();
+    updateGraphWithAllPhDs();
+}
+
+function updateSelectedList() {
+    const container = document.getElementById("selectedPhDs");
+    container.innerHTML = "";
+    
+    selectedPhDs.forEach(phd => {
+        const fullName = `${phd["auteur.prenom"]} ${phd["auteur.nom"]}`;
+        const item = document.createElement("div");
+        item.className = "selected-item";
+        item.innerHTML = `
+            <span>${fullName}</span>
+            <button class="remove-btn" data-name="${fullName}">✕</button>
+        `;
+        
+        // Ajoute l'écouteur d'événement au bouton
+        const removeBtn = item.querySelector('.remove-btn');
+        removeBtn.addEventListener('click', function() {
+            removePhD(this.dataset.name);
+        });
+        
+        container.appendChild(item);
+    });
+}
+
+function toggleSupervisors() {
+    showSupervisors = document.getElementById("showSupervisors").checked;
+    updateGraphWithAllPhDs();
+}
+
+async function updateGraphWithAllPhDs() {
+    if (selectedPhDs.size === 0) {
+        document.getElementById("graph").innerHTML = "";
+        return;
+    }
+
+    let supervisorsParams = [];
+    let phdParams = [];
+
+    selectedPhDs.forEach(phd => {
+        const phdName = `${phd["auteur.prenom"]} ${phd["auteur.nom"]}`;
+        phdParams.push(phdName);
+
+        if (showSupervisors) {
+            for (let i = 0; i < 7; i++) {
+                const supName = phd[`directeurs_these.${i}.nom`];
+                if (supName) {
+                    const supFullName = `${supName} ${phd[`directeurs_these.${i}.prenom`]}`;
+                    supervisorsParams.push(supFullName);
+                }
+            }
+        }
+    });
+
+    await updateGraph(supervisorsParams.join(','), phdParams.join(','));
+}
+
+window.updateGraph = async function updateGraph(supervisor_names, phdStudentNames) {
     console.log("📡 Envoi de la requête AJAX pour le graphique...");
     try {
-        let response = await fetch(`/update_graph?sup=${supervisor_names}&phd=${phdStudentName}`);
+        let response = await fetch(`/update_graph?sup=${supervisor_names}&phd=${phdStudentNames}`);
         let graphJSON = await response.json();
         console.log("📊 Graphique reçu, mise à jour...");
-        console.log("graphJSON", graphJSON);
         const graphDiv = document.getElementById("graph");
-
-        // Utilisez directement graphJSON, qui contient déjà data et layout
         Plotly.newPlot(graphDiv, graphJSON.data, graphJSON.layout);
-
     } catch (error) {
         console.error("🚨 Erreur lors de la mise à jour du graphique :", error);
     }
 };
-async function showPhD(phdStudent) {
-    console.log("🔍 Affichage de la thèse :", phdStudent);
-    const max_nb_supervisors = 7;
-    const phdStudentName = phdStudent["auteur.prenom"] + " " + phdStudent["auteur.nom"];
-    let supervisor_names = "";
-    for (let i = 0; i < max_nb_supervisors; i++) {
-        let supervisor_name = phdStudent["directeurs_these."+i+".nom"];
-        console.log("directeurs_these."+i+".nom", supervisor_name);
-        if (supervisor_name) {
-            supervisor_name += " " + phdStudent["directeurs_these."+i+".prenom"];
-            if(i>0){
-                supervisor_names += ", ";
-            }
-            supervisor_names += supervisor_name ;
-        }
-        else {
-            break;
-        }
-    }
-    await updateGraph(supervisor_names, phdStudentName)
-}
