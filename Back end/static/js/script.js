@@ -94,7 +94,7 @@ function removePhD(fullName) {
 function updateSelectedList() {
     const container = document.getElementById("selectedPhDs");
     container.innerHTML = "";
-    
+
     selectedPhDs.forEach(phd => {
         const fullName = `${phd["auteur.prenom"]} ${phd["auteur.nom"]}`;
         const item = document.createElement("div");
@@ -103,15 +103,75 @@ function updateSelectedList() {
             <span>${fullName}</span>
             <button class="remove-btn" data-name="${fullName}">✕</button>
         `;
-        
+
         // Ajoute l'écouteur d'événement au bouton
         const removeBtn = item.querySelector('.remove-btn');
         removeBtn.addEventListener('click', function() {
             removePhD(this.dataset.name);
         });
-        
+
+        // Ajoute les écouteurs d'événements pour le survol
+        item.addEventListener('mouseenter', () => highlightPhD(fullName));
+        item.addEventListener('mouseleave', () => unhighlightPhD(fullName));
+
         container.appendChild(item);
     });
+}
+
+function highlightPhD(fullName) {
+    const graphDiv = document.getElementById("graph");
+    if (!graphDiv.data || !graphDiv.data[0] || !graphDiv.data[0].marker) {
+        console.warn("Le graphique n'est pas encore initialisé ou ne contient pas les données attendues");
+        return;
+    }
+
+    // Obtenir les tailles actuelles
+    const currentSizes = graphDiv.data[0].marker.size;
+    const colors = graphDiv.data[0].marker.color;
+    const index = graphDiv.data[0].text.indexOf(fullName);
+
+    if (index !== -1) {
+        // Créer un nouveau tableau de tailles en préservant les tailles originales
+        const newSizes = currentSizes.map((size, i) => {
+            if (i === index) {
+                // Augmenter la taille du point survolé
+                return size * 1.5;
+            }
+            // Garder les tailles originales pour les autres points
+            return size;
+        });
+
+        Plotly.restyle(graphDiv, {
+            'marker.size': [newSizes]
+        });
+    }
+}
+
+function unhighlightPhD(fullName) {
+    const graphDiv = document.getElementById("graph");
+    if (!graphDiv.data || !graphDiv.data[0] || !graphDiv.data[0].marker) {
+        console.warn("Le graphique n'est pas encore initialisé ou ne contient pas les données attendues");
+        return;
+    }
+
+    const colors = graphDiv.data[0].marker.color;
+    const index = graphDiv.data[0].text.indexOf(fullName);
+
+    if (index !== -1) {
+        // Restaurer les tailles originales basées sur la couleur
+        const newSizes = colors.map(color => {
+            switch(color) {
+                case 'blue': return 30;   // disciplines
+                case 'red': return 20;    // superviseurs
+                case 'green': return 15;  // doctorants
+                default: return 15;       // fallback
+            }
+        });
+
+        Plotly.restyle(graphDiv, {
+            'marker.size': [newSizes]
+        });
+    }
 }
 
 function toggleSupervisors() {
