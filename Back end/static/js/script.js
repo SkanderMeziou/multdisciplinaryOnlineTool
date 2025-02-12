@@ -242,7 +242,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     reportForm.addEventListener('submit', function(event) {
         event.preventDefault();
-        // Ajoutez ici le code pour traiter le formulaire (par exemple, envoyer les données au serveur)
+
+        
         alert('Problem reported successfully!');
         reportModal.style.display = 'none';
     });

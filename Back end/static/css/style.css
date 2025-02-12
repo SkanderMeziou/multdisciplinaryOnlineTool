@@ -192,7 +192,7 @@ input:checked + .slider:before {
 
 .modal-content {
     background-color: #fefefe;
-    margin: 15% auto;
+    margin: 20vh auto;
     padding: 20px;
     border: 1px solid #888;
     width: 80%;
@@ -219,23 +219,30 @@ form label {
 }
 
 form input, form textarea {
-    width: 100%;
+    width: 95%;
     padding: 10px;
     margin-top: 5px;
     margin-bottom: 10px;
     border: 1px solid #ccc;
-    border-radius: 4px;
+    border-radius: 1em;
+    margin-right: 100px;
+}
+
+form textarea{
+    resize: none;
+    overflow: auto;
+    height: 6em;
 }
 
 form button {
     padding: 10px 20px;
-    background-color: #4CAF50;
+    background-color: #35d13a;
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 80px;
     cursor: pointer;
 }
 
 form button:hover {
-    background-color: #45a049;
+    background-color: #7df483;
 }
