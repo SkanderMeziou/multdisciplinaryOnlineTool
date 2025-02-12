@@ -127,7 +127,6 @@ function highlightPhD(fullName) {
 
     // Obtenir les tailles actuelles
     const currentSizes = graphDiv.data[0].marker.size;
-    const colors = graphDiv.data[0].marker.color;
     const index = graphDiv.data[0].text.indexOf(fullName);
 
     if (index !== -1) {
@@ -154,19 +153,13 @@ function unhighlightPhD(fullName) {
         return;
     }
 
-    const colors = graphDiv.data[0].marker.color;
+    const sizes = graphDiv.data[0].marker.size;
     const index = graphDiv.data[0].text.indexOf(fullName);
 
     if (index !== -1) {
         // Restaurer les tailles originales basées sur la couleur
-        const newSizes = colors.map(color => {
-            switch(color) {
-                case 'blue': return 30;   // disciplines
-                case 'red': return 20;    // superviseurs
-                case 'green': return 15;  // doctorants
-                default: return 15;       // fallback
-            }
-        });
+        let newSizes = sizes
+        newSizes[index] = sizes[index] / 1.5;
 
         Plotly.restyle(graphDiv, {
             'marker.size': [newSizes]

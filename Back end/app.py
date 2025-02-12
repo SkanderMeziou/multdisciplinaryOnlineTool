@@ -98,6 +98,11 @@ def update_graph():
     names = disciplines.tolist()
     labels = disciplines.tolist()
 
+    # Define colors and sizes
+    n = len(disciplines)
+    disc_colors = (px.colors.qualitative.Set2 + px.colors.qualitative.Set1 + px.colors.qualitative.Set3)[:n]
+    colors = disc_colors
+
     # Handle supervisors
     if supervisor_param != [""]:  # Check if there are any supervisors
         for name in supervisor_param:
@@ -117,6 +122,7 @@ def update_graph():
         ]
         sup_vectors.drop(["id"], axis=1, inplace=True)
         matrix_auth = sup_vectors.to_numpy()
+        colors = colors + [disc_colors[np.argmax(supervisor)] for supervisor in sup_vectors.to_numpy()]
 
     # Handle PhD students
     student_vectors = []
@@ -135,6 +141,9 @@ def update_graph():
                 stud_label += f" [{disc} ({count})] "
             labels.append(stud_label)
 
+    colors = colors + [disc_colors[np.argmax(student)] for student in student_vectors]
+
+    # Load coordinates
     coordinates_df = datasets["coordinates_15dimensions"]
     coordinates_df = coordinates_df.iloc[:, 1:]
     matrix_coord = coordinates_df.to_numpy()
@@ -157,10 +166,6 @@ def update_graph():
     x = full_coords[:, 0].tolist()
     y = full_coords[:, 1].tolist()
 
-    # Define colors and sizes
-    n = len(disciplines)
-    disc_colors = (px.colors.qualitative.Set1 + px.colors.qualitative.Set2 + px.colors.qualitative.Set3)[:n]
-    colors = disc_colors + [disc_colors[np.argmax(researcher)] for researcher in sup_vectors.to_numpy()] + [disc_colors[np.argmax(student)]for student in student_vectors]
     sizes = [30] * len(disciplines) + [20] * len(supervisor_names) + [10] * len(phdStudent_names)
     text_position = ["top center"] * len(disciplines) + ["bottom left"] * len(supervisor_names) + ["bottom right"] * len(phdStudent_names)
 
