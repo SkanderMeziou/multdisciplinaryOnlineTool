@@ -218,3 +218,32 @@ window.updateGraph = async function updateGraph(supervisor_names, phdStudentName
         console.error("🚨 Erreur lors de la mise à jour du graphique :", error);
     }
 };
+
+// script.js
+document.addEventListener('DOMContentLoaded', function() {
+    const reportButton = document.getElementsByClassName('reportButton')[0];
+    const reportModal = document.getElementById('reportModal');
+    const closeButton = document.querySelector('.close');
+    const reportForm = document.getElementById('reportForm');
+
+    reportButton.addEventListener('click', function() {
+        reportModal.style.display = 'block';
+    });
+
+    closeButton.addEventListener('click', function() {
+        reportModal.style.display = 'none';
+    });
+
+    window.addEventListener('click', function(event) {
+        if (event.target == reportModal) {
+            reportModal.style.display = 'none';
+        }
+    });
+
+    reportForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        // Ajoutez ici le code pour traiter le formulaire (par exemple, envoyer les données au serveur)
+        alert('Problem reported successfully!');
+        reportModal.style.display = 'none';
+    });
+});
