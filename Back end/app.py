@@ -4,6 +4,7 @@ import pandas as pd
 from pathlib import Path
 import plotly.graph_objects as go  # ✅ Ajoute cette ligne !
 from sklearn.manifold import TSNE
+import plotly.express as px
 
 app = Flask(__name__)
 
@@ -11,9 +12,9 @@ app = Flask(__name__)
 #-----------------------------------------------fonctions utilitaires---------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------------------------------
 
-def arrow(coordX,coordY,color):
+def create_arrow(coord_x, coord_y, color):
     return dict(
-        x=coordX, y=coordY, xref="x", yref="y",
+        x=coord_x, y=coord_y, xref="x", yref="y",
         ax=0, ay=0, axref="x", ayref="y",
         showarrow=True, arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor=color
     )
@@ -81,34 +82,41 @@ def search():
 def update_graph():
     supervisor_param = request.args.get("sup", "").strip()
     phdStudent_param = request.args.get("phd", "").strip()
-    
-    supervisor_names = [name.strip() for name in supervisor_param.split(",")] if supervisor_param else []
+    supervisor_param = supervisor_param.split(",")
+    supervisor_names = []
     phdStudent_names = [name.strip() for name in phdStudent_param.split(",")] if phdStudent_param else []
-    
+    supervisors = []
+
     researcher_df = datasets["all_authors"]
     index_of_id = researcher_df.columns.get_loc("id")
+    index_of_areas = researcher_df.columns.get_loc("areas")
     auth_vect_df = datasets["auth_vect"]
     matrix_auth = []
+    sup_vectors = []
 
     disciplines = auth_vect_df.columns[1:]
     names = disciplines.tolist()
+    labels = disciplines.tolist()
 
     # Handle supervisors
-    supervisors = []
-    if supervisor_names and supervisor_names[0]:  # Check if there are any supervisors
-        for name in supervisor_names:
+    if supervisor_param != [""]:  # Check if there are any supervisors
+        for name in supervisor_param:
             print("🔍 Recherche du directeur :", name)
             data = researcher_df[researcher_df["name"] == name]
             if len(data) > 0:
                 supervisors.append(data.values[0])
                 names.append(name)
-        
-        if supervisors:
-            sup_vectors = auth_vect_df.loc[
-                auth_vect_df["id"].isin([supervisor[index_of_id] for supervisor in supervisors])
-            ]
-            sup_vectors.drop(["id"], axis=1, inplace=True)
-            matrix_auth = sup_vectors.to_numpy()
+                supervisor_names.append(name)
+                discs, counts = np.unique(data.values[0][index_of_areas].split("; "), return_counts=True)
+                sup_label = "Supervisor : " + name
+                for disc, count in zip(discs, counts):
+                    sup_label += f" [{disc} ({count})] "
+                labels.append(sup_label)
+        sup_vectors = auth_vect_df.loc[
+            auth_vect_df["id"].isin([supervisor[index_of_id] for supervisor in supervisors])
+        ]
+        sup_vectors.drop(["id"], axis=1, inplace=True)
+        matrix_auth = sup_vectors.to_numpy()
 
     # Handle PhD students
     student_vectors = []
@@ -120,6 +128,12 @@ def update_graph():
             stud_vector.drop(["id"], axis=1, inplace=True)
             student_vectors.append(stud_vector.to_numpy())
             names.append(student_name)
+
+            stud_discs, stud_counts = np.unique(student[index_of_areas].split("; "), return_counts=True)
+            stud_label = student_name
+            for disc, count in zip(stud_discs, stud_counts):
+                stud_label += f" [{disc} ({count})] "
+            labels.append(stud_label)
 
     coordinates_df = datasets["coordinates_15dimensions"]
     coordinates_df = coordinates_df.iloc[:, 1:]
@@ -144,37 +158,30 @@ def update_graph():
     y = full_coords[:, 1].tolist()
 
     # Define colors and sizes
-    colors = ["blue"] * len(disciplines)
-    sizes = [30] * len(disciplines)
-    text_position = ["top center"] * len(disciplines)
-    
-    if len(supervisor_names) > 0 and supervisor_names[0]:
-        colors.extend(["red"] * len(supervisor_names))
-        sizes.extend([20] * len(supervisor_names))
-        text_position.extend(["bottom left"] * len(supervisor_names))
-    
-    colors.extend(["green"] * len(phdStudent_names))
-    sizes.extend([15] * len(phdStudent_names))
-    text_position.extend(["bottom right"] * len(phdStudent_names))
+    n = len(disciplines)
+    disc_colors = (px.colors.qualitative.Set1 + px.colors.qualitative.Set2 + px.colors.qualitative.Set3)[:n]
+    colors = disc_colors + [disc_colors[np.argmax(researcher)] for researcher in sup_vectors.to_numpy()] + [disc_colors[np.argmax(student)]for student in student_vectors]
+    sizes = [30] * len(disciplines) + [20] * len(supervisor_names) + [10] * len(phdStudent_names)
+    text_position = ["top center"] * len(disciplines) + ["bottom left"] * len(supervisor_names) + ["bottom right"] * len(phdStudent_names)
 
     fig = go.Figure(go.Scatter(
         x=x, y=y, 
         mode='markers+text', 
         text=names, 
-        textposition=text_position, 
+        textposition=text_position,
+        hovertext=labels,
+        hoverinfo='text',
         marker=dict(color=colors, size=sizes)
     ))
 
     # Add arrows
     arrows = []
     if len(x) > len(disciplines):
-        for i in range(len(disciplines), len(x)-len(phdStudent_names)):
-            arrows.append(arrow(x[i], y[i], "red"))
-        for i in range(len(x)-len(phdStudent_names), len(x)):
-            arrows.append(arrow(x[i], y[i], "green"))
+        for i in range(len(disciplines), len(x)):
+            arrows.append(create_arrow(x[i], y[i], colors[i]))
 
-    for a in arrows:
-        fig.add_annotation(a)
+    for arrow in arrows:
+        fig.add_annotation(arrow)
 
     fig.update_layout(
         title="Plot with Lines and Vectors",
