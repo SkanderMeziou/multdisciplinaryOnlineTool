@@ -101,7 +101,7 @@ function updateSelectedList() {
         item.className = "selected-item";
         item.innerHTML = `
             <span>${fullName}</span>
-            <button class="remove-btn" data-name="${fullName}">✕</button>
+            <button class="remove-btn" data-name="${fullName}"><b>✕</b></button>
         `;
 
         // Ajoute l'écouteur d'événement au bouton
@@ -134,7 +134,7 @@ function highlightPhD(fullName) {
         const newSizes = currentSizes.map((size, i) => {
             if (i === index) {
                 // Augmenter la taille du point survolé
-                return size * 1.5;
+                return size * 3;
             }
             // Garder les tailles originales pour les autres points
             return size;
@@ -159,7 +159,7 @@ function unhighlightPhD(fullName) {
     if (index !== -1) {
         // Restaurer les tailles originales basées sur la couleur
         let newSizes = sizes
-        newSizes[index] = sizes[index] / 1.5;
+        newSizes[index] = sizes[index] / 3;
 
         Plotly.restyle(graphDiv, {
             'marker.size': [newSizes]
