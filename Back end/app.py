@@ -29,7 +29,7 @@ input_dir = Path(__file__).resolve().parent.parent / "data"
 
 # Chargement sécurisé des fichiers CSV
 datasets = {}
-for filename in ["theses.csv", "all_authors.csv", "auth_vect.csv", "coordinates_15dimensions.csv"]:
+for filename in ["theses.csv", "all_authors.csv", "auth_vect.csv", "coordinates_15dimensions.csv", "coordinates_25dimensions.csv"]:
     file_path = input_dir / filename
     if file_path.exists():
         datasets[filename.split(".")[0]] = pd.read_csv(file_path, encoding="utf-8")
@@ -80,105 +80,136 @@ def search():
 
 @app.route("/update_graph")
 def update_graph():
-    supervisor_param = request.args.get("sup", "").strip()
-    phdStudent_param = request.args.get("phd", "").strip()
-    supervisor_param = supervisor_param.split(",")
-    supervisor_names = []
-    phdStudent_names = [name.strip() for name in phdStudent_param.split(",")] if phdStudent_param else []
-    supervisors = []
-
-    researcher_df = datasets["all_authors"]
-    index_of_id = researcher_df.columns.get_loc("id")
-    index_of_areas = researcher_df.columns.get_loc("areas")
+    nb_dim = 25
+    # Load data
     auth_vect_df = datasets["auth_vect"]
-    matrix_auth = []
-    sup_vectors = []
+    researcher_df = datasets["all_authors"]
+    # Define disciplines and their coordinates
+    coordinates_df = datasets[f"coordinates_{nb_dim}dimensions"]
+    disciplines = coordinates_df.iloc[:, 0]
+    coordinates_df = coordinates_df.iloc[:, 1:]
 
-    disciplines = auth_vect_df.columns[1:]
-    names = disciplines.tolist()
-    labels = disciplines.tolist()
 
-    # Define colors and sizes
+    # TSNE transformation
+    matrix_coord = coordinates_df.to_numpy()
+    embedded = TSNE(n_components=2, learning_rate='auto',
+                    random_state=42, perplexity=5).fit_transform(matrix_coord)
+
+    # Define colors
     n = len(disciplines)
     disc_colors = (px.colors.qualitative.Set2 + px.colors.qualitative.Set1 + px.colors.qualitative.Set3)[:n]
-    colors = disc_colors
 
-    # Handle supervisors
-    if supervisor_param != [""]:  # Check if there are any supervisors
+    # Create a dataframe to plot
+    df_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "text_position"])
+    # Add disciplines
+    for i, disc in enumerate(disciplines):
+        df_to_plot.loc[len(df_to_plot)] = {
+            "x": embedded[i, 0],
+            "y": embedded[i, 1],
+            "type": "discipline",
+            "name": disc,
+            "color": disc_colors[i],
+            "size": 30,
+            "text": disc,
+            "label": disc,
+            "text_position": "middle center"
+        }
+
+    # Add supervisors and PhD students
+    index_of_id = researcher_df.columns.get_loc("id")
+    index_of_areas = researcher_df.columns.get_loc("areas")
+
+    # Add supervisors
+    supervisor_param = request.args.get("sup", "").strip()
+    supervisor_param = supervisor_param.split(",")
+    supervisor_names = []
+    if supervisor_param != [""] :
         for name in supervisor_param:
             print("🔍 Recherche du directeur :", name)
             data = researcher_df[researcher_df["name"] == name]
+            if len(data) == 0:
+                inverse_name = name.split(" ")[-1] + " " + " ".join(name.split(" ")[:-1])
+                data = researcher_df[researcher_df["name"] == inverse_name]
             if len(data) > 0:
-                supervisors.append(data.values[0])
-                names.append(name)
+                supervisor = data.values[0]
                 supervisor_names.append(name)
-                discs, counts = np.unique(data.values[0][index_of_areas].split("; "), return_counts=True)
-                sup_label = "Supervisor : " + name
+                discs, counts = np.unique(supervisor[index_of_areas].split("; "), return_counts=True)
+                print("📚 Disciplines du directeur :", supervisor[index_of_areas])
+                label = "Supervisor : " + name
                 for disc, count in zip(discs, counts):
-                    sup_label += f" [{disc} ({count})] "
-                labels.append(sup_label)
-        sup_vectors = auth_vect_df.loc[
-            auth_vect_df["id"].isin([supervisor[index_of_id] for supervisor in supervisors])
-        ]
-        sup_vectors.drop(["id"], axis=1, inplace=True)
-        matrix_auth = sup_vectors.to_numpy()
-        colors = colors + [disc_colors[np.argmax(supervisor)] for supervisor in sup_vectors.to_numpy()]
+                    label += f" [{disc} ({count})] "
+                # Compute coordinates using auth_vect
+                sup_vector = auth_vect_df.loc[auth_vect_df["id"] == supervisor[index_of_id]]
+                sup_vector = sup_vector.drop(columns=["id"])
+                print("vector : ", np.array(sup_vector))
+                if not sup_vector.empty:
+                    coords = sup_vector.to_numpy().dot(embedded)
+                    df_to_plot.loc[len(df_to_plot)] = {
+                        "x": coords[0, 0],
+                        "y": coords[0, 1],
+                        "type": "supervisor",
+                        "name": name,
+                        "color": disc_colors[np.argmax(sup_vector)],
+                        "size": 20,
+                        "text": name,
+                        "label": label,
+                        "text_position": "bottom right"
+                    }
 
-    # Handle PhD students
-    student_vectors = []
+    # Add PhD students
+    phdStudent_param = request.args.get("phd", "").strip()
+    phdStudent_names = [name.strip() for name in phdStudent_param.split(",")] if phdStudent_param else []
     for student_name in phdStudent_names:
+        print("🔍 Recherche de l'étudiant :", student_name)
         student_data = researcher_df[researcher_df["name"] == student_name]
         if len(student_data) > 0:
+            print("📚 Disciplines de l'étudiant :", student_data.values[0][index_of_areas])
             student = student_data.values[0]
+            discs, counts = np.unique(student[index_of_areas].split("; "), return_counts=True)
+            label = student_name
+            for disc, count in zip(discs, counts):
+                label += f" [{disc} ({count})] "
+            # Compute coordinates using auth_vect
             stud_vector = auth_vect_df.loc[auth_vect_df["id"] == student[index_of_id]]
-            stud_vector.drop(["id"], axis=1, inplace=True)
-            student_vectors.append(stud_vector.to_numpy())
-            names.append(student_name)
+            stud_vector = stud_vector.drop(columns=["id"])
+            print("vector : ", np.array(stud_vector))
+            print("index : ", np.argmax(stud_vector))
+            print("disciplines : ", disciplines)
+            print("Main disciplines of the student : ", disciplines[np.argmax(stud_vector)])
+            if not stud_vector.empty:
+                coords = stud_vector.to_numpy().dot(embedded)
+                df_to_plot.loc[len(df_to_plot)] = {
+                    "x": coords[0, 0],
+                    "y": coords[0, 1],
+                    "type": "phd",
+                    "name": student_name,
+                    "color": disc_colors[np.argmax(stud_vector)],
+                    "size": 10,
+                    "text": student_name,
+                    "label": label,
+                    "text_position": "top left"
+                }
 
-            stud_discs, stud_counts = np.unique(student[index_of_areas].split("; "), return_counts=True)
-            stud_label = student_name
-            for disc, count in zip(stud_discs, stud_counts):
-                stud_label += f" [{disc} ({count})] "
-            labels.append(stud_label)
-
-    colors = colors + [disc_colors[np.argmax(student)] for student in student_vectors]
-
-    # Load coordinates
-    coordinates_df = datasets["coordinates_15dimensions"]
-    coordinates_df = coordinates_df.iloc[:, 1:]
-    matrix_coord = coordinates_df.to_numpy()
-
-    # TSNE transformation
-    embedded = TSNE(n_components=2, learning_rate='auto', 
-                   random_state=42, perplexity=5).fit_transform(matrix_coord)
-    
-    # Project all vectors
-    matrix = None
-    if student_vectors:
-        matrix_stud = np.vstack(student_vectors).dot(embedded)
-        matrix = matrix_stud
-        if len(matrix_auth) > 0:
-            matrix_auth = matrix_auth.dot(embedded)
-            matrix = np.concatenate((matrix_auth, matrix_stud), axis=0)
-    
-    full_coords = np.concatenate((embedded, matrix), axis=0) if matrix is not None else embedded
-    
-    x = full_coords[:, 0].tolist()
-    y = full_coords[:, 1].tolist()
-
-    sizes = [30] * len(disciplines) + [20] * len(supervisor_names) + [10] * len(phdStudent_names)
-    text_position = ["top center"] * len(disciplines) + ["bottom left"] * len(supervisor_names) + ["bottom right"] * len(phdStudent_names)
 
     fig = go.Figure(go.Scatter(
-        x=x, y=y, 
-        mode='markers+text', 
-        text=names, 
-        textposition=text_position,
-        hovertext=labels,
+        x=df_to_plot["x"].tolist(),
+        y=df_to_plot["y"].tolist(),
+        mode='markers+text',
+        marker=dict(
+            color=df_to_plot["color"].tolist(),
+            size=df_to_plot["size"].tolist(),
+        ),
+        text=df_to_plot["name"].tolist(),
         hoverinfo='text',
-        marker=dict(color=colors, size=sizes)
+        hovertext=df_to_plot["label"].tolist(),
+        textposition=df_to_plot["text_position"].tolist()
     ))
 
+    fig.write_html(f"graph{nb_dim}.html")
+
+    x = df_to_plot["x"]
+    y = df_to_plot["y"]
+    colors = df_to_plot["color"]
     # Add arrows
     arrows = []
     if len(x) > len(disciplines):
