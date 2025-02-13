@@ -235,9 +235,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
     reportForm.addEventListener('submit', function(event) {
         event.preventDefault();
-
-        
-        alert('Problem reported successfully!');
-        reportModal.style.display = 'none';
+    
+        // Récupérer les données du formulaire
+        const formData = new FormData(reportForm);
+        const reportData = {};
+        formData.forEach((value, key) => {
+            reportData[key] = value;
+        });
+    
+        // Envoyer une requête POST au serveur Flask
+        fetch('/report', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(reportData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+            reportModal.style.display = 'none';
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Une erreur est survenue.');
+        });
     });
 });
