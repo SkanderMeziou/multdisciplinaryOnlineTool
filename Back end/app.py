@@ -5,8 +5,11 @@ from pathlib import Path
 import plotly.graph_objects as go  # ✅ Ajoute cette ligne !
 from sklearn.manifold import TSNE
 import plotly.express as px
+from datetime import datetime
+import json
 
 app = Flask(__name__)
+REPORTS_FILE = "reports.json"
 
 #-----------------------------------------------------------------------------------------------------------------------------
 #-----------------------------------------------fonctions utilitaires---------------------------------------------------------
@@ -227,6 +230,39 @@ def update_graph():
     )
 
     return fig.to_json()
+
+# Charger les reports existants (ou créer un fichier vide)
+def load_reports():
+    try:
+        with open(REPORTS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+# Sauvegarder un nouveau report
+def save_report(report):
+    reports = load_reports()
+    reports.append(report)
+    with open(REPORTS_FILE, "w", encoding="utf-8") as f:
+        json.dump(reports, f, indent=4, ensure_ascii=False)
+
+@app.route('/report', methods=['POST'])
+def handle_report():
+    data = request.json
+    if not data or "name" not in data or "issue" not in data:
+        return jsonify({"message": "Données invalides"}), 400
+
+    report = {
+        "name": data["name"],
+        "issue": data["issue"],
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+    save_report(report)
+
+    return jsonify({"message": "Report enregistré avec succès", "report": report})
+
+
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)

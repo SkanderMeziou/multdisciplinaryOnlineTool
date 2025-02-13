@@ -212,7 +212,6 @@ window.updateGraph = async function updateGraph(supervisor_names, phdStudentName
     }
 };
 
-// script.js
 document.addEventListener('DOMContentLoaded', function() {
     const reportButton = document.getElementsByClassName('reportButton')[0];
     const reportModal = document.getElementById('reportModal');
@@ -236,29 +235,37 @@ document.addEventListener('DOMContentLoaded', function() {
     reportForm.addEventListener('submit', function(event) {
         event.preventDefault();
     
-        // Récupérer les données du formulaire
-        const formData = new FormData(reportForm);
-        const reportData = {};
-        formData.forEach((value, key) => {
-            reportData[key] = value;
-        });
-    
-        // Envoyer une requête POST au serveur Flask
-        fetch('/report', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(reportData)
+        // Récupérer les valeurs du formulaire
+        const name = document.getElementById('name').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const issue = document.getElementById('issue').value.trim();
+
+        if (!name || !email || !issue) {
+            alert("Tous les champs sont obligatoires !");
+            return;
+        }
+
+        const reportData = { name, email, issue };
+
+        console.log("📡 Données envoyées :", reportData); // 🔍 Debugging
+
+        // Envoyer la requête POST au serveur Flask
+        fetch("/report", {
+            method: "POST",
+            body: JSON.stringify(reportData),
+            headers: { "Content-Type": "application/json" }
         })
-        .then(response => response.json())
+        .then(response => response.text()) // Affiche la réponse brute pour voir si c'est un JSON valide
         .then(data => {
-            alert(data.message);
-            reportModal.style.display = 'none';
+            console.log("📩 Réponse brute:", data);
+            return JSON.parse(data);
         })
-        .catch(error => {
-            console.error('Erreur:', error);
-            alert('Une erreur est survenue.');
-        });
+        .then(parsedData => {
+            console.log("✅ Succès:", parsedData);
+            alert(parsedData.message); // Afficher le message de succès
+            reportModal.style.display = 'none';
+            reportForm.reset(); // Vider le formulaire après envoi
+        })
+        .catch(error => console.error("🚨 Erreur de parsing JSON:", error));
     });
 });
