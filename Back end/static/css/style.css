@@ -117,7 +117,9 @@ body{
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-
+.selected-item:hover {
+    background-color: rgb(201, 213, 225);
+}
 .remove-btn {
     background: none;
     border: none;
