@@ -22,7 +22,7 @@ async function searchThese() {
         `;
         resultsDiv.appendChild(loader);
 
-        let url = `/search?dataset=theses&q=${query}&columns_search=auteur.nom,auteur.prenom`;
+        let url = `/search?dataset=matchings_with_id&q=${query}&columns_search=name_student&columns_show=name_student,discipline_student_scopus,id`;
         console.log("📡 Envoi de la requête :", url);
 
         try {
@@ -50,8 +50,8 @@ async function searchThese() {
                     let entry = document.createElement("div");
                     entry.innerHTML = `
                         <p>
-                            <strong>${row["auteur.nom"]} ${row["auteur.prenom"]}</strong> 
-                            <span style="color: gray;">(${row.discipline || "Discipline inconnue"})</span>
+                            <strong>${row["name_student"]}</strong> 
+                            <span style="color: gray;">(${row.discipline_student_scopus || "Discipline inconnue"})</span>
                         </p>
                     `;
                     entry.className = "resultatTheses";
@@ -67,9 +67,9 @@ async function searchThese() {
 }
 
 function isAlreadySelected(phd) {
-    const fullName = `${phd["auteur.prenom"]} ${phd["auteur.nom"]}`;
+    const id = `${phd["id"]}`;
     return Array.from(selectedPhDs).some(selected => 
-        `${selected["auteur.prenom"]} ${selected["auteur.nom"]}` === fullName
+        `${selected["id"]}` === id
     );
 }
 
@@ -79,10 +79,10 @@ function addPhD(phdStudent) {
     updateGraphWithAllPhDs();
 }
 
-function removePhD(fullName) {
+function removePhD(id) {
     // Trouve le PhD à supprimer basé sur son nom complet
     for (let phd of selectedPhDs) {
-        if (`${phd["auteur.prenom"]} ${phd["auteur.nom"]}` === fullName) {
+        if (`${phd["id"]}` === id) {
             selectedPhDs.delete(phd);
             break;
         }
@@ -96,7 +96,8 @@ function updateSelectedList() {
     container.innerHTML = "";
 
     selectedPhDs.forEach(phd => {
-        const fullName = `${phd["auteur.prenom"]} ${phd["auteur.nom"]}`;
+        const fullName = `${phd["name_student"]}`;
+        const id = `${phd["id"]}`;
         const item = document.createElement("div");
         item.className = "selected-item";
         item.innerHTML = `
@@ -107,7 +108,7 @@ function updateSelectedList() {
         // Ajoute l'écouteur d'événement au bouton
         const removeBtn = item.querySelector('.remove-btn');
         removeBtn.addEventListener('click', function() {
-            removePhD(this.dataset.name);
+            removePhD(id);
         });
 
         // Ajoute les écouteurs d'événements pour le survol
@@ -177,32 +178,24 @@ async function updateGraphWithAllPhDs() {
         document.getElementById("graph").innerHTML = "";
         return;
     }
-
-    let supervisorsParams = [];
     let phdParams = [];
-
+    console.log(selectedPhDs)
     selectedPhDs.forEach(phd => {
-        const phdName = `${phd["auteur.prenom"]} ${phd["auteur.nom"]}`;
-        phdParams.push(phdName);
-
-        if (showSupervisors) {
-            for (let i = 0; i < 7; i++) {
-                const supName = phd[`directeurs_these.${i}.nom`];
-                if (supName) {
-                    const supFullName = `${supName} ${phd[`directeurs_these.${i}.prenom`]}`;
-                    supervisorsParams.push(supFullName);
-                }
-            }
-        }
+        const phdId = `${phd["id"]}`;
+        phdParams.push(phdId);
     });
-
-    await updateGraph(supervisorsParams.join(','), phdParams.join(','));
+    if (showSupervisors) {
+        await updateGraph(1, phdParams.join(','),);
+    }
+    else {
+        await updateGraph(0, phdParams.join(','));
+    }
 }
 
-window.updateGraph = async function updateGraph(supervisor_names, phdStudentNames) {
+window.updateGraph = async function updateGraph(isShowSups, phdIds) {
     console.log("📡 Envoi de la requête AJAX pour le graphique...");
     try {
-        let response = await fetch(`/update_graph?sup=${supervisor_names}&phd=${phdStudentNames}`);
+        let response = await fetch(`/update_graph?isShowSup=${isShowSups}&phd=${phdIds}`);
         let graphJSON = await response.json();
         console.log("📊 Graphique reçu, mise à jour...");
         const graphDiv = document.getElementById("graph");
