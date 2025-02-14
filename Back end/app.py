@@ -83,7 +83,7 @@ def search():
 
 @app.route("/update_graph")
 def update_graph():
-    nb_dim = 25
+    nb_dim = 15
     # Load data
     auth_vect_df = datasets["auth_vect"]
     researcher_df = datasets["all_authors"]

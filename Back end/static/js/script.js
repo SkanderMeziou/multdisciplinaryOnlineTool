@@ -269,3 +269,60 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => console.error("🚨 Erreur de parsing JSON:", error));
     });
 });
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelector(".tenRandom").addEventListener("click", selectRandomPhDs);
+});
+
+function selectRandomPhDs() {
+    let resultsDiv = document.getElementById("results");
+    let availablePhDs = Array.from(resultsDiv.getElementsByClassName("resultatTheses"));
+
+    if (availablePhDs.length === 0) {
+        alert("Aucun thésard disponible dans la liste !");
+        return;
+    }
+
+    let count = Math.min(10, availablePhDs.length);
+    let selected = getRandomElements(availablePhDs, count);
+
+    let phdsToAdd = [];
+
+    selected.forEach(entry => {
+        // Récupérer les données du thésard sans déclencher un clic
+        let fullName = entry.querySelector("strong").innerText;
+        let discipline = entry.querySelector("span").innerText.replace(/[()]/g, "");
+        
+        phdsToAdd.push({
+            "auteur.nom": fullName.split(" ")[1], 
+            "auteur.prenom": fullName.split(" ")[0], 
+            "discipline": discipline
+        });
+    });
+
+    // Ajouter les 10 thésards en une seule fois
+    addMultiplePhDs(phdsToAdd);
+}
+
+
+function getRandomElements(array, num) {
+    let shuffled = array.slice().sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, num);
+}
+
+function addMultiplePhDs(phdsList) {
+    let shouldUpdateGraph = false;
+
+    phdsList.forEach(phd => {
+        if (!isAlreadySelected(phd)) {
+            selectedPhDs.add(phd);
+            shouldUpdateGraph = true;
+        }
+    });
+
+    updateSelectedList();
+    
+    if (shouldUpdateGraph) {
+        updateGraphWithAllPhDs(); // Appel unique à la fin
+    }
+}
