@@ -165,6 +165,9 @@ def update_graph():
     for student_name in phdStudent_names:
         print("🔍 Recherche de l'étudiant :", student_name)
         student_data = researcher_df[researcher_df["name"] == student_name]
+        if len(student_data) == 0:
+            inverse_name = student_name.split(" ")[-1] + " " + " ".join(student_name.split(" ")[:-1])
+            student_data = researcher_df[researcher_df["name"] == inverse_name]
         if len(student_data) > 0:
             print("📚 Disciplines de l'étudiant :", student_data.values[0][index_of_areas])
             student = student_data.values[0]

@@ -312,17 +312,18 @@ function getRandomElements(array, num) {
 
 function addMultiplePhDs(phdsList) {
     let shouldUpdateGraph = false;
-
+    let i = 0 ;
     phdsList.forEach(phd => {
         if (!isAlreadySelected(phd)) {
             selectedPhDs.add(phd);
             shouldUpdateGraph = true;
+            console.log("Thésard ajouté :", phd);
         }
     });
 
     updateSelectedList();
     
-    if (shouldUpdateGraph) {
+    if (shouldUpdateGraph === true) {
         updateGraphWithAllPhDs(); // Appel unique à la fin
     }
 }
