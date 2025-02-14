@@ -327,3 +327,10 @@ function addMultiplePhDs(phdsList) {
         updateGraphWithAllPhDs(); // Appel unique à la fin
     }
 }
+
+function deleteAll(){
+    console.log("reset phd list")
+    selectedPhDs.clear();
+    updateSelectedList();
+    updateGraphWithAllPhDs();
+}
