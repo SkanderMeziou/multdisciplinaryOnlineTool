@@ -55,6 +55,7 @@ async function searchThese() {
                         </p>
                     `;
                     entry.className = "resultatTheses";
+                    entry.id_scopus = row["id_scopus_student"];
                     entry.onclick = () => addPhD(row);
                     resultsDiv.appendChild(entry);
                 }
@@ -287,9 +288,9 @@ function selectRandomPhDs() {
         let discipline = entry.querySelector("span").innerText.replace(/[()]/g, "");
         
         phdsToAdd.push({
-            "auteur.nom": fullName.split(" ")[1], 
-            "auteur.prenom": fullName.split(" ")[0], 
-            "discipline": discipline
+            "name_student": fullName ,
+            "discipline_student_scopus": discipline,
+            "id_scopus_student": entry.id_scopus
         });
     });
 
