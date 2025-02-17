@@ -32,7 +32,7 @@ input_dir = Path(__file__).resolve().parent.parent / "data"
 
 # Chargement sécurisé des fichiers CSV
 datasets = {}
-for filename in ["coordinates.csv", "matchings_with_id.csv"]:
+for filename in ["coordinates.csv", "matchings_with_id.csv", "matchings_2_supervisors.csv"]:
     file_path = input_dir / filename
     if file_path.exists():
         datasets[filename.split(".")[0]] = pd.read_csv(file_path, encoding="utf-8")
@@ -84,7 +84,7 @@ def search():
 @app.route("/update_graph")
 def update_graph():
     # Load data
-    main_df = datasets["matchings_with_id"]
+    main_df = datasets["matchings_2_supervisors"]
 
     # Define disciplines and their coordinates
     coordinates_df = datasets["coordinates"]
@@ -122,7 +122,7 @@ def update_graph():
     phdIds = [int(phdId) for phdId in request.args.get("phd").split(",")]
 
     # Retrieve the data of the PhD students
-    phdStudents = main_df[main_df["id"].isin(phdIds)]
+    phdStudents = main_df[main_df["id_scopus_student"].isin(phdIds)]
 
     for i, student in phdStudents.iterrows():
         print("Processing student : ",student["name_student"])
