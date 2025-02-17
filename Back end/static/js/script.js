@@ -22,7 +22,7 @@ async function searchThese() {
         `;
         resultsDiv.appendChild(loader);
 
-        let url = `/search?dataset=matchings_with_id&q=${query}&columns_search=name_student&columns_show=name_student,discipline_student_scopus,id`;
+        let url = `/search?dataset=matchings_2_supervisors&q=${query}&columns_search=name_student&columns_show=name_student,discipline_student_scopus,id_scopus_student`;
         console.log("📡 Envoi de la requête :", url);
 
         try {
@@ -67,9 +67,9 @@ async function searchThese() {
 }
 
 function isAlreadySelected(phd) {
-    const id = `${phd["id"]}`;
+    const id = `${phd["id_scopus_student"]}`;
     return Array.from(selectedPhDs).some(selected => 
-        `${selected["id"]}` === id
+        `${selected["id_scopus_student"]}` === id
     );
 }
 
@@ -82,7 +82,7 @@ function addPhD(phdStudent) {
 function removePhD(id) {
     // Trouve le PhD à supprimer basé sur son nom complet
     for (let phd of selectedPhDs) {
-        if (`${phd["id"]}` === id) {
+        if (`${phd["id_scopus_student"]}` === id) {
             selectedPhDs.delete(phd);
             break;
         }
@@ -97,7 +97,7 @@ function updateSelectedList() {
 
     selectedPhDs.forEach(phd => {
         const fullName = `${phd["name_student"]}`;
-        const id = `${phd["id"]}`;
+        const id = `${phd["id_scopus_student"]}`;
         const item = document.createElement("div");
         item.className = "selected-item";
         item.innerHTML = `
@@ -181,7 +181,7 @@ async function updateGraphWithAllPhDs() {
     let phdParams = [];
     console.log(selectedPhDs)
     selectedPhDs.forEach(phd => {
-        const phdId = `${phd["id"]}`;
+        const phdId = `${phd["id_scopus_student"]}`;
         phdParams.push(phdId);
     });
     if (showSupervisors) {
