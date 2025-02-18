@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     window.addEventListener('click', function(event) {
-        if (event.target == reportModal) {
+        if (event.target === reportModal) {
             reportModal.style.display = 'none';
         }
     });
@@ -232,14 +232,15 @@ document.addEventListener('DOMContentLoaded', function() {
         // Récupérer les valeurs du formulaire
         const name = document.getElementById('name').value.trim();
         const email = document.getElementById('email').value.trim();
+        const category = document.getElementById("category").value;
         const issue = document.getElementById('issue').value.trim();
 
-        if (!name || !email || !issue) {
+        if (!name || !email || !category || !issue) {
             alert("Tous les champs sont obligatoires !");
             return;
         }
 
-        const reportData = { name, email, issue };
+        const reportData = { name, email, category, issue };
 
         console.log("📡 Données envoyées :", reportData); // 🔍 Debugging
 

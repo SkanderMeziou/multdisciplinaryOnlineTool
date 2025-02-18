@@ -228,11 +228,13 @@ def save_report(report):
 @app.route('/report', methods=['POST'])
 def handle_report():
     data = request.json
-    if not data or "name" not in data or "issue" not in data:
+    if not data or "name" not in data or "issue" not in data or "email" not in data or "category" not in data:
         return jsonify({"message": "Données invalides"}), 400
 
     report = {
         "name": data["name"],
+        "email": data["email"],
+        "category": data["category"],
         "issue": data["issue"],
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }

@@ -248,3 +248,11 @@ form button {
 form button:hover {
     background-color: #7df483;
 }
+
+#category {
+    padding: 10px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    cursor: pointer;
+}

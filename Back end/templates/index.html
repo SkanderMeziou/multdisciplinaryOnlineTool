@@ -37,6 +37,16 @@
         
                         <label for="email">Email:</label>
                         <input type="email" id="email" name="email" required>
+
+                        <label for="category">Issue type:</label>
+                        <select id="category" name="category" required>
+                            <option value="" disabled selected>-- Select an option --</option>
+                            <option value="Name Typo">Name Typo</option>
+                            <option value="Supervisor Name Typo">Supervisor Name Typo</option>
+                            <option value="Wrong Supervisor(s)">Wrong Supervisor(s)</option>
+                            <option value="Missing Supervisor(s)">Missing Supervisor(s)</option>
+                            <option value="Missing Publication(s)">Missing Publication(s)</option>
+                        </select>
         
                         <label for="issue">Issue:</label>
                         <textarea id="issue" name="issue" required></textarea>
