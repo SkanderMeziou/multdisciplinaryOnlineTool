@@ -78,7 +78,12 @@ def search():
     search_space = df[valid_search_columns].fillna("").astype(str).agg(" ".join, axis=1)
     mask = search_space.str.contains(name, case=False, na=False)
 
-    results = df.loc[mask, valid_show_columns].fillna("").to_dict(orient="records")
+
+    results = df.loc[mask, valid_show_columns].fillna("")
+    # apply title case to name
+    results["name_student"] = results["name_student"].str.title()
+    results = results.to_dict(orient="records")
+
     return jsonify(results)
 
 @app.route("/update_graph")
@@ -128,7 +133,7 @@ def update_graph():
         print("Processing student : ",student["name_student"])
         print(student)
         main_disc = student["discipline_student_scopus"]
-        student_name = student["name_student"]
+        student_name = student["name_student"].title()
         areas = np.array([float(x) for x in student["areas_student"][2:-2].split(", ")])
         pubs = areas*int(student["num_pubs_student"])
         labeled_pubs = dict(zip(disciplines, pubs))
@@ -153,6 +158,7 @@ def update_graph():
             # Retrieve the data of the supervisors
             supervisors = [student["name_supervisor1"], student["name_supervisor2"]]
             for j, supervisor_name in enumerate(supervisors):
+                supervisor_name = supervisor_name.title()
                 areas = np.array([float(x) for x in student[f"areas_supervisor{j+1}"][2:-2].split(", ")])
                 # pubs = areas*int(student[f"num_pubs_supervisor{j+1}"])
                 labeled_pubs = dict(zip(disciplines, areas))
