@@ -2,14 +2,57 @@ let selectedPhDs = new Set();
 let showSupervisors = false;
 
 let debounceTimeout;
+async function searchWithQuery(query) {
+    let resultsDiv = document.getElementById("results");
+    resultsDiv.innerHTML = "";
+    let url = `/search?dataset=matchings_2_supervisors&q=${query}&columns_search=name_student&columns_show=name_student,discipline_student_scopus,id_scopus_student`;
+    console.log("📡 Envoi de la requête :", url);
 
+    try {
+        let response = await fetch(url);
+        if (!response.ok) {
+            alert(`HTTP error! status: ${response.status}`);
+        }
+        let data = await response.json();
+        console.log("📩 Réponse reçue :", data);
+
+        resultsDiv.innerHTML = "";
+
+        if (data.error) {
+            resultsDiv.innerHTML = `<p style="color: red;">⚠️ ${data.error}</p>`;
+            return;
+        }
+
+        if (data.length === 0) {
+            resultsDiv.innerHTML = `<p>Aucun résultat trouvé.</p>`;
+            return;
+        }
+
+        data.forEach(row => {
+            if (!isAlreadySelected(row)) {
+                let entry = document.createElement("div");
+                entry.innerHTML = `
+                    <p>
+                        <strong>${row["name_student"]}</strong> 
+                        <span style="color: gray;">(${row.discipline_student_scopus || "Discipline inconnue"})</span>
+                    </p>
+                `;
+                entry.className = "resultatTheses";
+                entry.id_scopus = row["id_scopus_student"];
+                entry.onclick = () => addPhD(row);
+                resultsDiv.appendChild(entry);
+            }
+        });
+    } catch (error) {
+        resultsDiv.innerHTML = `<p style="color: red;">🚨 Erreur lors de la recherche.</p>`;
+        console.error("Erreur :", error);
+    }
+}
 async function searchThese() {
     clearTimeout(debounceTimeout);
 
     debounceTimeout = setTimeout(async () => {
         let query = document.getElementById("search").value.trim();
-        let resultsDiv = document.getElementById("results");
-        resultsDiv.innerHTML = "";
 
         if (query.length === 0) return;
 
@@ -20,50 +63,10 @@ async function searchThese() {
             <div></div>
             <div></div>
         `;
+        let resultsDiv = document.getElementById("results");
         resultsDiv.appendChild(loader);
 
-        let url = `/search?dataset=matchings_2_supervisors&q=${query}&columns_search=name_student&columns_show=name_student,discipline_student_scopus,id_scopus_student`;
-        console.log("📡 Envoi de la requête :", url);
-
-        try {
-            let response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            let data = await response.json();
-            console.log("📩 Réponse reçue :", data);
-
-            resultsDiv.innerHTML = "";
-
-            if (data.error) {
-                resultsDiv.innerHTML = `<p style="color: red;">⚠️ ${data.error}</p>`;
-                return;
-            }
-
-            if (data.length === 0) {
-                resultsDiv.innerHTML = `<p>Aucun résultat trouvé.</p>`;
-                return;
-            }
-
-            data.forEach(row => {
-                if (!isAlreadySelected(row)) {
-                    let entry = document.createElement("div");
-                    entry.innerHTML = `
-                        <p>
-                            <strong>${row["name_student"]}</strong> 
-                            <span style="color: gray;">(${row.discipline_student_scopus || "Discipline inconnue"})</span>
-                        </p>
-                    `;
-                    entry.className = "resultatTheses";
-                    entry.id_scopus = row["id_scopus_student"];
-                    entry.onclick = () => addPhD(row);
-                    resultsDiv.appendChild(entry);
-                }
-            });
-        } catch (error) {
-            resultsDiv.innerHTML = `<p style="color: red;">🚨 Erreur lors de la recherche.</p>`;
-            console.error("Erreur :", error);
-        }
+        await searchWithQuery(query);
     }, 1000);
 }
 
@@ -77,7 +80,7 @@ function isAlreadySelected(phd) {
 function addPhD(phdStudent) {
     selectedPhDs.add(phdStudent);
     updateSelectedList();
-    updateGraphWithAllPhDs();
+    updateGraphWithAllPhDs().then(() => console.log("Graphique mis à jour"));
 }
 
 function removePhD(id) {
@@ -89,7 +92,7 @@ function removePhD(id) {
         }
     }
     updateSelectedList();
-    updateGraphWithAllPhDs();
+    updateGraphWithAllPhDs().then(() => console.log("Graphique mis à jour"));
 }
 
 function updateSelectedList() {
@@ -171,7 +174,7 @@ function unhighlightPhD(fullName) {
 
 function toggleSupervisors() {
     showSupervisors = document.getElementById("showSupervisors").checked;
-    updateGraphWithAllPhDs();
+    updateGraphWithAllPhDs().then(() => console.log("Graphique mis à jour"));
 }
 
 async function updateGraphWithAllPhDs() {
@@ -269,13 +272,13 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelector(".tenRandom").addEventListener("click", selectRandomPhDs);
 });
 
-function selectRandomPhDs() {
+async function selectRandomPhDs() {
     let resultsDiv = document.getElementById("results");
     let availablePhDs = Array.from(resultsDiv.getElementsByClassName("resultatTheses"));
 
     if (availablePhDs.length === 0) {
-        alert("Aucun thésard disponible dans la liste !");
-        return;
+        await searchWithQuery("");
+        return selectRandomPhDs();
     }
 
     let count = Math.min(10, availablePhDs.length);
@@ -287,9 +290,9 @@ function selectRandomPhDs() {
         // Récupérer les données du thésard sans déclencher un clic
         let fullName = entry.querySelector("strong").innerText;
         let discipline = entry.querySelector("span").innerText.replace(/[()]/g, "");
-        
+
         phdsToAdd.push({
-            "name_student": fullName ,
+            "name_student": fullName,
             "discipline_student_scopus": discipline,
             "id_scopus_student": entry.id_scopus
         });
@@ -307,7 +310,6 @@ function getRandomElements(array, num) {
 
 function addMultiplePhDs(phdsList) {
     let shouldUpdateGraph = false;
-    let i = 0 ;
     phdsList.forEach(phd => {
         if (!isAlreadySelected(phd)) {
             selectedPhDs.add(phd);
@@ -319,7 +321,7 @@ function addMultiplePhDs(phdsList) {
     updateSelectedList();
     
     if (shouldUpdateGraph === true) {
-        updateGraphWithAllPhDs(); // Appel unique à la fin
+        updateGraphWithAllPhDs().then(() => console.log("Graphique mis à jour"));
     }
 }
 
@@ -327,5 +329,5 @@ function deleteAll(){
     console.log("reset phd list")
     selectedPhDs.clear();
     updateSelectedList();
-    updateGraphWithAllPhDs();
+    updateGraphWithAllPhDs().then(() => console.log("Graphique mis à jour"));
 }
