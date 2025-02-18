@@ -5,7 +5,7 @@ let debounceTimeout;
 async function searchWithQuery(query) {
     let resultsDiv = document.getElementById("results");
     resultsDiv.innerHTML = "";
-    let url = `/search?dataset=matchings_2_supervisors&q=${query}&columns_search=name_student&columns_show=name_student,discipline_student_scopus,id_scopus_student`;
+    let url = `/search?dataset=matchings_2_supervisors&q=${query}&columns_search=name_student&columns_show=name_student,discipline_student_scopus,id_scopus_student,num_pubs_student`;
     console.log("📡 Envoi de la requête :", url);
 
     try {
@@ -39,6 +39,7 @@ async function searchWithQuery(query) {
                 `;
                 entry.className = "resultatTheses";
                 entry.id_scopus = row["id_scopus_student"];
+                entry.nb_pubs = row["num_pubs_student"];
                 entry.onclick = () => addPhD(row);
                 resultsDiv.appendChild(entry);
             }
@@ -101,11 +102,12 @@ function updateSelectedList() {
 
     selectedPhDs.forEach(phd => {
         const fullName = `${phd["name_student"]}`;
+        const nb_publications = `${phd["num_pubs_student"]}`;
         const id = `${phd["id_scopus_student"]}`;
         const item = document.createElement("div");
         item.className = "selected-item";
         item.innerHTML = `
-            <span>${fullName}</span>
+            <span>${fullName} (${nb_publications} publications)</span>
             <button class="remove-btn" data-name="${fullName}"><b>✕</b></button>
         `;
 
@@ -294,7 +296,8 @@ async function selectRandomPhDs() {
         phdsToAdd.push({
             "name_student": fullName,
             "discipline_student_scopus": discipline,
-            "id_scopus_student": entry.id_scopus
+            "id_scopus_student": entry.id_scopus,
+            "num_pubs_student": entry.nb_pubs
         });
     });
 
