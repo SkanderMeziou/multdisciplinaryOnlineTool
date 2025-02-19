@@ -136,6 +136,8 @@ def update_graph():
         student_name = student["name_student"].title()
         areas = np.array([float(x) for x in student["areas_student"][2:-2].split(", ")])
         pubs = areas*int(student["num_pubs_student"])
+        # to int values
+        pubs = [int(x) for x in pubs]
         labeled_pubs = dict(zip(disciplines, pubs))
         labeled_pubs = {k: v for k, v in sorted(labeled_pubs.items(), key=lambda item: item[1], reverse=True)}
         # remove zero values
@@ -160,13 +162,16 @@ def update_graph():
             for j, supervisor_name in enumerate(supervisors):
                 supervisor_name = supervisor_name.title()
                 areas = np.array([float(x) for x in student[f"areas_supervisor{j+1}"][2:-2].split(", ")])
-                # pubs = areas*int(student[f"num_pubs_supervisor{j+1}"])
-                labeled_pubs = dict(zip(disciplines, areas))
-                # labeled_pubs = {k: v for k, v in sorted(labeled_pubs.items(), key=lambda item: item[1], reverse=True)}
+                pubs = areas*int(student[f"num_pubs_supervisor{j+1}"])
+                # to int value
+                pubs = [int(x) for x in pubs]
+                labeled_pubs = dict(zip(disciplines, pubs))
+                labeled_pubs = {k: v for k, v in sorted(labeled_pubs.items(), key=lambda item: item[1], reverse=True)}
                 # remove zero values
                 labeled_pubs = {k: v for k, v in labeled_pubs.items() if v != 0}
-                labeled_pubs = {k: v for k, v in sorted(labeled_pubs.items(), key=lambda item: item[1], reverse=True)}
                 labeled_pubs = [f"{disc} ({pub})" for disc, pub in labeled_pubs.items()]
+                disc_index = np.argmax(areas)
+                main_disc = disciplines[disc_index]
                 label = f"{supervisor_name} ({main_disc})\n{labeled_pubs}"
                 coordinates = areas.dot(embedded)
                 df_to_plot.loc[len(df_to_plot)] = {
@@ -174,7 +179,7 @@ def update_graph():
                     "y": coordinates[1],
                     "type": "supervisor",
                     "name": supervisor_name,
-                    "color": disc_colors[np.argmax(areas)],
+                    "color": disc_colors[disc_index],
                     "size": 20,
                     "text": supervisor_name,
                     "label": label,
