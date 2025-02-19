@@ -131,7 +131,6 @@ def update_graph():
 
     for i, student in phdStudents.iterrows():
         print("Processing student : ",student["name_student"])
-        print(student)
         main_disc = student["discipline_student_scopus"]
         student_name = student["name_student"].title()
         areas = np.array([float(x) for x in student["areas_student"][2:-2].split(", ")])
