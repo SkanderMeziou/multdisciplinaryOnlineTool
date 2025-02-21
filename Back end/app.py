@@ -58,11 +58,9 @@ def filter_with_sup_discs():
     discipline_columns = [f"discipline_supervisor{i}_scopus" for i in range(1, nb_sups+1)]
 
     def row_satisfies_conditions(row, disc_filters_param):
-        print(disc_filters_param)
         for disc_filter in row[discipline_columns].values:
             if disc_filter in disc_filters_param:
                 disc_filters_param.remove(disc_filter)
-        print(disc_filters_param)
         return disc_filters_param == [''] or disc_filters_param == []
 
     mask = main_df.apply(lambda row: row_satisfies_conditions(row, disc_filters.copy()), axis=1)

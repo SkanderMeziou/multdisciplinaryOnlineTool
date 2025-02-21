@@ -1,10 +1,14 @@
 body{
     font-family: Arial, Helvetica, sans-serif;
+    margin:0;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
 }
 
 #results{
     border-radius: 32px;
-    background-color: rgb(213, 235, 255);
+    background-color: rgb(237, 246, 255);
     width: 24vw;
     max-height: 75vh;
     padding: 12px;
@@ -24,10 +28,11 @@ body{
 }
 
 .resultatTheses:hover{
-    background-color: rgb(161, 211, 255);
+    background-color: rgb(213, 235, 255);
 }
 .resultatTheses:active{
-    background-color: rgb(135, 199, 255);
+    background-color: 
+    rgb(163, 212, 255);
 }
 
 .loader {
@@ -62,6 +67,7 @@ body{
     display: flex;
     flex-direction: row; 
     width: 100vw; 
+    height: 100vh;
     margin-top: 0;
 }
 
@@ -70,13 +76,16 @@ body{
     order: 1; 
     width:30vw;
     padding: 12px;
-    background-color: lightblue;
+    background-color: rgb(213, 235, 255);
+    overflow: scroll;
 }
 
 #graphPart {
     width:60vw;
     order: 2;
     padding: 12px;
+    overflow: scroll;
+    height: 100vh;
 }
 
 #graph{
@@ -260,7 +269,7 @@ form button:hover {
 }
 
 #filter_container{
-    background-color: #6ab7ff;
+    background-color: rgb(237, 246, 255);
     padding: 10px;
     border-radius: 10px;
 }
@@ -271,12 +280,40 @@ form button:hover {
 }
 
 #supervisor_disc_filter select {
-    border-radius: 10px;
+    border-radius: 16px;
     margin: 5px;
+    border:none;
+    background-color: rgb(90, 130, 173);
+    color: #ffffff;
+    padding: 6px;
+    
+}
+
+#supervisor_disc_filter select:hover{
+    background-color: rgb(68, 108, 150);
 }
 
 button {
-    border-radius: 5px;
+    border-radius: 10px;
     margin: 5px;
+    border: none;
     cursor: pointer;
+    background-color: rgb(90, 130, 173);
+    color: #ffffff;
+    padding: 6px;
+}
+
+
+button:hover{
+    background-color: rgb(77, 105, 135);
+}
+
+button:active{
+    background-color: rgb(69, 96, 126);
+}
+
+#search{
+    border:none;
+    border-radius: 20px;
+    padding : 6px;
 }
