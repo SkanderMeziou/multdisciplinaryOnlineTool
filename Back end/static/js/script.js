@@ -1,5 +1,61 @@
 let selectedPhDs = new Set();
 let showSupervisors = false;
+const nb_sups = 2;
+
+async function filter_supervisors(discs) {
+    console.log("ca fait des trucs");
+    let url = `/filter?discs=` + discs;
+    console.log("📡 Envoi de la requête :", url);
+    try {
+        await fetch(url, { method: "GET" }); // No need to handle response
+        console.log("Request sent successfully.");
+    } catch (error) {
+        console.error("Error sending request:", error);
+    }
+    // launch search again
+    await searchWithQuery(document.getElementById("search").value.trim());
+}
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    let disciplines = ['AGRI', 'ARTS', 'BIOC', 'BUSI', 'CENG', 'CHEM', 'COMP', 'DECI', 'DENT', 'EART',
+               'ECON', 'ENER', 'ENGI', 'ENVI', 'HEAL', 'IMMU', 'MATE', 'MATH', 'MEDI', 'MULT',
+               'NEUR', 'NURS', 'PHAR', 'PHYS', 'PSYC', 'SOCI', 'VETE'];
+    let container = document.getElementById("supervisor_disc_filter");
+    container.appendChild(document.createElement("br"));
+
+    for (let i = 0; i < nb_sups; i++) {
+        let select = document.createElement("select");
+        select.name = `discipline${i + 1}`;
+        select.className = "discipline_filter";
+
+        // Add an empty option as default
+        let defaultOption = document.createElement("option");
+        defaultOption.value = "";
+        defaultOption.textContent = "Any";
+        select.appendChild(defaultOption);
+
+        // Populate the dropdown with discipline options
+        disciplines.forEach(discipline => {
+            let option = document.createElement("option");
+            option.value = discipline;
+            option.textContent = discipline;
+            select.appendChild(option);
+        });
+
+        // Add an event listener to each dropdown
+        select.addEventListener("change", async () => {
+            // retrieve both filter dropdowns
+            let filters = Array.from(container.getElementsByClassName("discipline_filter"));
+            let selected_discs = filters.map(filter => filter.value).filter(disc => (disc !== "Any" && disc !== "")).join(",");
+            console.log("Selected disciplines:", selected_discs);
+            await filter_supervisors(selected_discs);
+        });
+
+        // Append dropdown to the container
+        container.appendChild(select);
+    }
+});
 
 let debounceTimeout;
 async function searchWithQuery(query) {

@@ -12,6 +12,10 @@
     <div class="container">
         <div id="researchPart">
             <h1>🔎 Recherche de thésards</h1>
+            <div id="filter_container">
+                <div id="supervisor_disc_filter">Filtrer suivant la discipline des superviseurs : </div>
+            </div>
+            <br>
             <input type="text" id="search" onkeyup="searchThese()" placeholder="Tapez pour rechercher...">
             <button class="tenRandom">10 random</button>
             <div id="results"></div>
@@ -20,9 +24,10 @@
                     <input type="checkbox" id="showSupervisors" onchange="toggleSupervisors()">
                     <span class="slider">-</span><span> Afficher les superviseurs</span>
                 </label>
+                |
+                <button id="clear" onclick="deleteAll();">Remove all students</button>
             </div>
             <div id="selectedPhDs" class="selected-items"></div>
-            <button id="clear" onclick="deleteAll();">clear</button>
         </div>
         
         <div id="graphPart">

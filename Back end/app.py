@@ -32,12 +32,15 @@ input_dir = Path(__file__).resolve().parent.parent / "data"
 
 # Chargement sécurisé des fichiers CSV
 datasets = {}
-for filename in ["coordinates.csv", "matchings_with_id.csv", "matchings_2_supervisors.csv"]:
+for filename in ["coordinates.csv", "matchings_2_supervisors.csv"]:
     file_path = input_dir / filename
     if file_path.exists():
         datasets[filename.split(".")[0]] = pd.read_csv(file_path, encoding="utf-8")
     else:
         print(f"Fichier manquant : {file_path}")
+
+main_df = pd.DataFrame(datasets["matchings_2_supervisors"])
+nb_sups = 2
 
 print("Datasets chargés avec succès :", list(datasets.keys()))
 
@@ -45,6 +48,27 @@ print("Datasets chargés avec succès :", list(datasets.keys()))
 def index():
     datasets_info = {name: list(df.columns) for name, df in datasets.items()}
     return render_template("index.html", datasets=datasets_info)
+
+@app.route("/filter")
+def filter_with_sup_discs():
+    disc_filters = [disc for disc in request.args.get("discs").split(",")]
+    global main_df
+    main_df = pd.DataFrame(datasets["matchings_2_supervisors"])
+    # List of all supervisor discipline columns
+    discipline_columns = [f"discipline_supervisor{i}_scopus" for i in range(1, nb_sups+1)]
+
+    def row_satisfies_conditions(row, disc_filters_param):
+        print(disc_filters_param)
+        for disc_filter in row[discipline_columns].values:
+            if disc_filter in disc_filters_param:
+                disc_filters_param.remove(disc_filter)
+        print(disc_filters_param)
+        return disc_filters_param == [''] or disc_filters_param == []
+
+    mask = main_df.apply(lambda row: row_satisfies_conditions(row, disc_filters.copy()), axis=1)
+    main_df = main_df[mask]
+
+    return "", 204  # No response content
 
 @app.route("/search")
 def search():
@@ -60,26 +84,29 @@ def search():
     columns_show_str = request.args.get("columns_show", "") # Récupère les colonnes comme une chaîne
     columns_show = columns_show_str.split(",")  # Décompose les colonnes en liste
 
-    df = datasets[dataset_name]
+    global main_df
+    # if main_df is empty then tell user no user found
+    if main_df.empty:
+        return jsonify("")
     if not columns_search:
-        columns_search = df.columns
+        columns_search = main_df.columns
     if columns_show == ['']:
         print("columns_show is empty")
-        columns_show = df.columns
+        columns_show = main_df.columns
 
-    valid_search_columns = [col for col in columns_search if col in df.columns]
+    valid_search_columns = [col for col in columns_search if col in main_df.columns]
     if not valid_search_columns:
         return jsonify({"error": "No valid search columns specified"}), 400
 
-    valid_show_columns = [col for col in columns_show if col in df.columns]
+    valid_show_columns = [col for col in columns_show if col in main_df.columns]
     if not valid_show_columns:
         return jsonify({"error": "No valid show columns specified"}), 400
 
-    search_space = df[valid_search_columns].fillna("").astype(str).agg(" ".join, axis=1)
+    search_space = main_df[valid_search_columns].fillna("").astype(str).agg(" ".join, axis=1)
     mask = search_space.str.contains(name, case=False, na=False)
 
 
-    results = df.loc[mask, valid_show_columns].fillna("")
+    results = main_df.loc[mask, valid_show_columns].fillna("")
     # apply title case to name
     results["name_student"] = results["name_student"].str.title()
     results = results.to_dict(orient="records")
@@ -88,9 +115,6 @@ def search():
 
 @app.route("/update_graph")
 def update_graph():
-    # Load data
-    main_df = datasets["matchings_2_supervisors"]
-
     # Define disciplines and their coordinates
     coordinates_df = datasets["coordinates"]
     disciplines = coordinates_df.iloc[:, 0]
@@ -142,7 +166,7 @@ def update_graph():
         # remove zero values
         labeled_pubs = {k: v for k, v in labeled_pubs.items() if v != 0}
         labeled_pubs = [f"{disc} ({pub})" for disc, pub in labeled_pubs.items()]
-        label = f"{student_name} ({main_disc})\n{labeled_pubs}"
+        label = f"{student_name} ({main_disc}) {labeled_pubs}"
         coordinates = areas.dot(embedded)
         df_to_plot.loc[len(df_to_plot)] = {
             "x": coordinates[0],
@@ -157,8 +181,10 @@ def update_graph():
         }
         if isShowSup :
             # Retrieve the data of the supervisors
-            supervisors = [student["name_supervisor1"], student["name_supervisor2"]]
+            supervisors = [student[f"name_supervisor{i}"] for i in range(1, nb_sups+1)]
             for j, supervisor_name in enumerate(supervisors):
+                if not supervisor_name or supervisor_name == "nan" or supervisor_name == "" :
+                    continue
                 supervisor_name = supervisor_name.title()
                 areas = np.array([float(x) for x in student[f"areas_supervisor{j+1}"][2:-2].split(", ")])
                 pubs = areas*int(student[f"num_pubs_supervisor{j+1}"])
@@ -171,7 +197,8 @@ def update_graph():
                 labeled_pubs = [f"{disc} ({pub})" for disc, pub in labeled_pubs.items()]
                 disc_index = np.argmax(areas)
                 main_disc = disciplines[disc_index]
-                label = f"{supervisor_name} ({main_disc})\n{labeled_pubs}"
+                label = f"{supervisor_name} ({main_disc}) {labeled_pubs}"
+                label2 = f"supervises {student_name}"
                 coordinates = areas.dot(embedded)
                 df_to_plot.loc[len(df_to_plot)] = {
                     "x": coordinates[0],
@@ -181,7 +208,7 @@ def update_graph():
                     "color": disc_colors[disc_index],
                     "size": 20,
                     "text": supervisor_name,
-                    "label": label,
+                    "label": label+"<br>"+label2,
                     "text_position": "top right"
                 }
 
