@@ -272,6 +272,8 @@ form button:hover {
     background-color: rgb(237, 246, 255);
     padding: 10px;
     border-radius: 10px;
+    border-color: #0d3d63;
+    border-width: medium;
 }
 
 #supervisor_disc_filter {
