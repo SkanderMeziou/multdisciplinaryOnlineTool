@@ -260,9 +260,11 @@ form button:hover {
 }
 
 #filter_container{
-    background-color: #6ab7ff;
+    background-color: #b9ddff;
     padding: 10px;
     border-radius: 10px;
+    border-color: #0d3d63;
+    border-width: medium;
 }
 
 #supervisor_disc_filter {
