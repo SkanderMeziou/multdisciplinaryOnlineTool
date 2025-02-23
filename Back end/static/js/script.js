@@ -58,9 +58,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 let debounceTimeout;
-async function searchWithQuery(query) {
-    let resultsDiv = document.getElementById("results");
-    resultsDiv.innerHTML = "";
+async function searchWithQuery(query, resultsDiv) {
     let url = `/search?dataset=matchings_2_supervisors&q=${query}&columns_search=name_student&columns_show=name_student,discipline_student_scopus,id_scopus_student,num_pubs_student`;
     console.log("📡 Envoi de la requête :", url);
 
@@ -123,7 +121,7 @@ async function searchThese() {
         let resultsDiv = document.getElementById("results");
         resultsDiv.appendChild(loader);
 
-        await searchWithQuery(query);
+        await searchWithQuery(query, resultsDiv);
     }, 1000);
 }
 
@@ -335,7 +333,7 @@ async function selectRandomPhDs() {
     let availablePhDs = Array.from(resultsDiv.getElementsByClassName("resultatTheses"));
 
     if (availablePhDs.length === 0) {
-        await searchWithQuery("");
+        await searchWithQuery("", resultsDiv);
         return selectRandomPhDs();
     }
 
