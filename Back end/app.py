@@ -39,7 +39,8 @@ for filename in ["coordinates.csv", "matchings_2_supervisors.csv"]:
     else:
         print(f"Fichier manquant : {file_path}")
 
-main_df = pd.DataFrame(datasets["matchings_2_supervisors"])
+matching_df = pd.DataFrame(datasets["matchings_2_supervisors"])
+main_df = matching_df.copy()
 nb_sups = 2
 
 print("Datasets chargés avec succès :", list(datasets.keys()))
@@ -49,21 +50,21 @@ def index():
     datasets_info = {name: list(df.columns) for name, df in datasets.items()}
     return render_template("index.html", datasets=datasets_info)
 
+def row_satisfies_conditions(values, filters_param):
+    for disc_filter in values:
+        if disc_filter in filters_param:
+            filters_param.remove(disc_filter)
+    return filters_param == [''] or filters_param == []
+
 @app.route("/filter")
 def filter_with_sup_discs():
     disc_filters = [disc for disc in request.args.get("discs").split(",")]
     global main_df
-    main_df = pd.DataFrame(datasets["matchings_2_supervisors"])
+    main_df = matching_df.copy()
     # List of all supervisor discipline columns
     discipline_columns = [f"discipline_supervisor{i}_scopus" for i in range(1, nb_sups+1)]
 
-    def row_satisfies_conditions(row, disc_filters_param):
-        for disc_filter in row[discipline_columns].values:
-            if disc_filter in disc_filters_param:
-                disc_filters_param.remove(disc_filter)
-        return disc_filters_param == [''] or disc_filters_param == []
-
-    mask = main_df.apply(lambda row: row_satisfies_conditions(row, disc_filters.copy()), axis=1)
+    mask = main_df.apply(lambda row: row_satisfies_conditions(row[discipline_columns].values, disc_filters.copy()), axis=1)
     main_df = main_df[mask]
 
     return "", 204  # No response content
