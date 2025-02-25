@@ -32,16 +32,24 @@ input_dir = Path(__file__).resolve().parent.parent / "data"
 
 # Chargement sécurisé des fichiers CSV
 datasets = {}
-for filename in ["coordinates.csv", "matchings_2_supervisors.csv"]:
+for filename in ["coordinates.csv", "matchings_2_supervisors.csv", "matchings_2_supervisors_michele_total.csv"]:
     file_path = input_dir / filename
     if file_path.exists():
         datasets[filename.split(".")[0]] = pd.read_csv(file_path, encoding="utf-8")
     else:
         print(f"Fichier manquant : {file_path}")
 
+# Initialisation des variables globales
 matching_df = pd.DataFrame(datasets["matchings_2_supervisors"])
 main_df = matching_df.copy()
 nb_sups = 2
+coordinates_df = datasets["coordinates"]
+disciplines = coordinates_df.iloc[:, 0].tolist()
+coordinates_df = coordinates_df.iloc[:, 1:]
+matrix_coord = coordinates_df.to_numpy()
+embedded = TSNE(n_components=2, learning_rate='auto', random_state=42, perplexity=5).fit_transform(matrix_coord)
+n = len(disciplines)
+disc_colors = (px.colors.qualitative.Set2 + px.colors.qualitative.Set1 + px.colors.qualitative.Set3)[:n]
 
 print("Datasets chargés avec succès :", list(datasets.keys()))
 
@@ -114,21 +122,6 @@ def search():
 
 @app.route("/update_graph")
 def update_graph():
-    # Define disciplines and their coordinates
-    coordinates_df = datasets["coordinates"]
-    disciplines = coordinates_df.iloc[:, 0]
-    coordinates_df = coordinates_df.iloc[:, 1:]
-
-
-    # TSNE transformation
-    matrix_coord = coordinates_df.to_numpy()
-    embedded = TSNE(n_components=2, learning_rate='auto',
-                    random_state=42, perplexity=5).fit_transform(matrix_coord)
-
-    # Define colors
-    n = len(disciplines)
-    disc_colors = (px.colors.qualitative.Set2 + px.colors.qualitative.Set1 + px.colors.qualitative.Set3)[:n]
-
     # Create a dataframe to plot
     df_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "text_position"])
     # Add disciplines
