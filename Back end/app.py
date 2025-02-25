@@ -160,12 +160,13 @@ def update_graph():
         labeled_pubs = [f"{disc} ({pub})" for disc, pub in labeled_pubs.items()]
         label = f"{student_name} ({main_disc}) {labeled_pubs}"
         coordinates = areas.dot(embedded)
+        color = disc_colors[np.argmax(areas)] if areas.sum() > 0 else disc_colors[list.index(disciplines, main_disc)]
         df_to_plot.loc[len(df_to_plot)] = {
             "x": coordinates[0],
             "y": coordinates[1],
             "type": "phd",
             "name": student_name,
-            "color": disc_colors[np.argmax(areas)],
+            "color": color,
             "size": 10,
             "text": student_name,
             "label": label,
@@ -231,10 +232,12 @@ def update_graph():
         fig.add_annotation(arrow)
 
     fig.update_layout(
-        title="Plot with Lines and Vectors",
-        xaxis_title="X Axis",
-        yaxis_title="Y Axis",
-        showlegend=False
+    #     title="Plot with Lines and Vectors",
+    #     xaxis_title="X Axis",
+    #     yaxis_title="Y Axis",
+    #     showlegend=False
+        xaxis = dict(showticklabels=False),
+        yaxis = dict(showticklabels=False)
     )
 
     return fig.to_json()
