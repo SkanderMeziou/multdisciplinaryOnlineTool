@@ -6,6 +6,7 @@ body{
     overflow: hidden;
 }
 
+
 #results{
     border-radius: 32px;
     background-color: rgb(237, 246, 255);
@@ -78,6 +79,8 @@ body{
     padding: 12px;
     background-color: rgb(213, 235, 255);
     overflow: scroll;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 #graphPart {
@@ -85,7 +88,8 @@ body{
     order: 2;
     padding: 12px;
     overflow: scroll;
-    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 #graph{

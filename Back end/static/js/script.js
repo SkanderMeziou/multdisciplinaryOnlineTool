@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add an empty option as default
         let defaultOption = document.createElement("option");
         defaultOption.value = "";
-        defaultOption.textContent = "Any";
+        defaultOption.textContent = "Toutes";
         select.appendChild(defaultOption);
 
         // Populate the dropdown with discipline options
