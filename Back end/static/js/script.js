@@ -16,6 +16,11 @@ async function filter_supervisors(discs) {
     await searchWithQuery(document.getElementById("search").value.trim());
 }
 
+function clearResults() {
+    document.getElementById("results").innerHTML = "";
+    document.getElementById("search").value = "";
+}
+
 
 document.addEventListener('DOMContentLoaded', function() {
     let disciplines = ['AGRI', 'ARTS', 'BIOC', 'BUSI', 'CENG', 'CHEM', 'COMP', 'DECI', 'DENT', 'EART',
