@@ -32,7 +32,7 @@ input_dir = Path(__file__).resolve().parent.parent / "data"
 
 # Chargement sécurisé des fichiers CSV
 datasets = {}
-for filename in ["coordinates.csv", "matchings_2_supervisors.csv", "matchings_2_supervisors_michele_total.csv"]:
+for filename in ["coordinates.csv", "matchings_2_supervisors.csv", "phd_students.csv"]:
     file_path = input_dir / filename
     if file_path.exists():
         datasets[filename.split(".")[0]] = pd.read_csv(file_path, encoding="utf-8")
@@ -239,6 +239,8 @@ def update_graph():
         xaxis = dict(showticklabels=False),
         yaxis = dict(showticklabels=False)
     )
+
+    # fig.write_image("fig1.png")
 
     return fig.to_json()
 
