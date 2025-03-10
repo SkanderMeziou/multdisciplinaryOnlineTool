@@ -6,6 +6,15 @@ async function filter_supervisors(discs) {
     console.log("ca fait des trucs");
     let url = `/filter?discs=` + discs;
     console.log("📡 Envoi de la requête :", url);
+    let loader = document.createElement("div");
+        loader.className = "loader";
+        loader.innerHTML = `
+            <div></div>
+            <div></div>
+            <div></div>
+        `;
+        let filtersDiv = document.getElementById("supervisor_disc_filter");
+        filtersDiv.appendChild(loader);
     try {
         await fetch(url, { method: "GET" }); // No need to handle response
         console.log("Request sent successfully.");
@@ -13,6 +22,7 @@ async function filter_supervisors(discs) {
         console.error("Error sending request:", error);
     }
     // launch search again
+    filtersDiv.removeChild(loader);
     await searchWithQuery(document.getElementById("search").value.trim());
 }
 
@@ -64,7 +74,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 let debounceTimeout;
 async function searchWithQuery(query, resultsDiv) {
-    let url = `/search?dataset=matchings_2_supervisors&q=${query}&columns_search=name_student&columns_show=name_student,discipline_student_scopus,id_scopus_student,num_pubs_student`;
+    let url = `/search?q=${query}&columns_search=name_student&columns_show=name_student,discipline_student_scopus,id_scopus_student,num_pubs_student`;
     console.log("📡 Envoi de la requête :", url);
 
     try {
@@ -270,6 +280,46 @@ window.updateGraph = async function updateGraph(isShowSups, phdIds) {
     }
 };
 
+document.getElementById("category").addEventListener("change", function() {
+    // Reset optional inputs
+    let supervisor = document.getElementsByClassName('supervisor_name_input');
+    for (let i = 0; i < supervisor.length; i++) {
+        supervisor[i].style.display = 'none';
+    }
+    let missingPublications = document.getElementsByClassName('publication_title');
+    for (let i = 0; i < missingPublications.length; i++) {
+        missingPublications[i].style.display = 'none';
+    }
+    let supervisor_input = document.getElementById('supervisor_name_input');
+    supervisor_input.required = false;
+    let missingPublicationsInput = document.getElementById('publication_title');
+    missingPublicationsInput.required = false;
+    let phd_name_input = document.getElementById('phd_name_input');
+    phd_name_input.required = false;
+
+    const chosen = this.value;
+    if (chosen === "Other") {
+        return;
+    }
+    document.getElementById("phd_name_input").required = true;
+    if(chosen === 'Missing Publication(s)'){
+        let missingPublications = document.getElementsByClassName('publication_title');
+        for (let i = 0; i < missingPublications.length; i++) {
+            missingPublications[i].style.display = 'block';
+        }
+        let missingPublicationsInput = document.getElementById('publication_title');
+        missingPublicationsInput.required = true;
+    }
+    else if (chosen !== 'Name Typo') {
+        let supervisor = document.getElementsByClassName('supervisor_name_input');
+        for (let i = 0; i < supervisor.length; i++) {
+            supervisor[i].style.display = 'block';
+        }
+        let supervisor_input = document.getElementById('supervisor_name_input');
+        supervisor_input.required = true;
+    }
+});
+
 document.addEventListener('DOMContentLoaded', function() {
     const reportButton = document.getElementsByClassName('reportButton')[0];
     const reportModal = document.getElementById('reportModal');
@@ -277,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const reportForm = document.getElementById('reportForm');
 
     reportButton.addEventListener('click', function() {
-        reportModal.style.display = 'block';
+        reportModal.style.display = 'flex';
     });
 
     closeButton.addEventListener('click', function() {
@@ -298,13 +348,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const email = document.getElementById('email').value.trim();
         const category = document.getElementById("category").value;
         const issue = document.getElementById('issue').value.trim();
+        const supervisor = document.getElementById('supervisor_name_input').value.trim();
+        const publication = document.getElementById('publication_title').value.trim();
+        const phd_name = document.getElementById('phd_name_input').value.trim();
 
         if (!name || !email || !category || !issue) {
             alert("Tous les champs sont obligatoires !");
             return;
         }
 
-        const reportData = { name, email, category, issue };
+        const reportData = { name, email, category, issue, phd_name, supervisor, publication };
 
         console.log("📡 Données envoyées :", reportData); // 🔍 Debugging
 

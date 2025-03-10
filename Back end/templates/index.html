@@ -16,19 +16,23 @@
                 <div id="supervisor_disc_filter">Filtrer suivant la discipline des superviseurs : </div>
             </div>
             <br>
-            <input type="text" id="search" onkeyup="searchThese()" placeholder="Tapez pour rechercher...">
-            <button id="all_clear" class="remove-btn" onclick="clearResults()">✕</button>
-            <button class="tenRandom">Aléatoire (10)</button>
-            <div id="results"></div>
-            <div class="controls">
-                <label class="toggle">
-                    <input type="checkbox" id="showSupervisors" onchange="toggleSupervisors()">
-                    <span class="slider">-</span><span> Afficher les superviseurs</span>
-                </label>
-                |
-                <button id="clear" onclick="deleteAll();">Retirer tous les étudiants</button>
+            <div id="search_container">
+                <label for="search">Nom du thésard :</label>
+                <br>
+                <input type="text" id="search" onkeyup="searchThese()" placeholder="Tapez pour rechercher...">
+                <button id="all_clear" class="remove-btn" onclick="clearResults()">✕</button>
+                <button class="tenRandom">Aléatoire (10)</button>
+                <div id="results"></div>
+                <div class="controls">
+                    <label class="toggle">
+                        <input type="checkbox" id="showSupervisors" onchange="toggleSupervisors()">
+                        <span class="slider">-</span><span> Afficher les superviseurs</span>
+                    </label>
+                    |
+                    <button id="clear" onclick="deleteAll();">Retirer tous les étudiants</button>
+                </div>
+                <div id="selectedPhDs" class="selected-items"></div>
             </div>
-            <div id="selectedPhDs" class="selected-items"></div>
         </div>
         
         <div id="graphPart">
@@ -46,13 +50,23 @@
 
                         <label for="category">Catégorie du problème:</label>
                         <select id="category" name="category" required>
-                            <option value="" disabled selected>-- Select an option --</option>
-                            <option value="Name Typo">Name Typo</option>
-                            <option value="Supervisor Name Typo">Supervisor Name Typo</option>
-                            <option value="Wrong Supervisor(s)">Wrong Supervisor(s)</option>
-                            <option value="Missing Supervisor(s)">Missing Supervisor(s)</option>
-                            <option value="Missing Publication(s)">Missing Publication(s)</option>
+                            <option value="" disabled selected>-- Catégorie à choisir --</option>
+                            <option value="Name Typo">Typo nom étudiant</option>
+                            <option value="Supervisor Name Typo">Typo nom superviseur(s)</option>
+                            <option value="Wrong Supervisor(s)">Superviseur(s) incorrecte(s)</option>
+                            <option value="Missing Supervisor(s)">Superviseur(s) manquant(s)</option>
+                            <option value="Missing Publication(s)">Publication(s) manquante(s)</option>
+                            <option value="Other">Autre</option>
                         </select>
+
+                        <label class="phd_name_input" for="phd_name_input">Nom de l'étudiant</label>
+                        <input class="phd_name_input" id="phd_name_input">
+
+                        <label class="supervisor_name_input" for="supervisor_name_input">Nom du superviseur</label>
+                        <input class="supervisor_name_input" id="supervisor_name_input">
+
+                        <label class="publication_title" for="publication_title">Titre de la publication</label>
+                        <input class="publication_title" id="publication_title">
         
                         <label for="issue">Description:</label>
                         <textarea id="issue" name="issue"></textarea>

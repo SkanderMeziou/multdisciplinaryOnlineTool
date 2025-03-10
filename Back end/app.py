@@ -32,15 +32,27 @@ input_dir = Path(__file__).resolve().parent.parent / "data"
 
 # Chargement sécurisé des fichiers CSV
 datasets = {}
-for filename in ["coordinates.csv", "matchings_2_supervisors.csv", "phd_students.csv"]:
+for filename in [
+    "coordinates.csv",
+    # "matchings_2_supervisors.csv",
+    "phd_students.h5"
+]:
     file_path = input_dir / filename
     if file_path.exists():
-        datasets[filename.split(".")[0]] = pd.read_csv(file_path, encoding="utf-8")
+        match file_path.suffix:
+            case ".csv":
+                dataset = pd.read_csv(file_path, encoding="utf-8")
+            case ".parquet":
+                dataset = pd.read_parquet(file_path, engine="pyarrow")
+            case ".h5":
+                dataset = pd.read_hdf(file_path)
+        datasets[filename.split(".")[0]] = dataset
     else:
         print(f"Fichier manquant : {file_path}")
 
+
 # Initialisation des variables globales
-matching_df = pd.DataFrame(datasets["matchings_2_supervisors"])
+matching_df = pd.DataFrame(datasets["phd_students"])
 main_df = matching_df.copy()
 nb_sups = 2
 coordinates_df = datasets["coordinates"]
@@ -81,10 +93,6 @@ def filter_with_sup_discs():
 def search():
     name = request.args.get("q", "").strip().lower()
 
-    dataset_name = request.args.get("dataset", "")
-    if dataset_name not in datasets:
-        return jsonify({"error": "Dataset not found"}), 400
-
     columns_search_str = request.args.get("columns_search", "") # Récupère les colonnes comme une chaîne
     columns_search = columns_search_str.split(",")  # Décompose les colonnes en liste
 
@@ -96,7 +104,7 @@ def search():
     if main_df.empty:
         return jsonify("")
     if not columns_search:
-        columns_search = main_df.columns
+        columns_search = main_df.columnsg
     if columns_show == ['']:
         print("columns_show is empty")
         columns_show = main_df.columns
@@ -176,7 +184,7 @@ def update_graph():
             # Retrieve the data of the supervisors
             supervisors = [student[f"name_supervisor{i}"] for i in range(1, nb_sups+1)]
             for j, supervisor_name in enumerate(supervisors):
-                if not supervisor_name or supervisor_name == "nan" or supervisor_name == "" :
+                if not supervisor_name or supervisor_name == "nan" or supervisor_name == "" or type(supervisor_name) != str:
                     continue
                 supervisor_name = supervisor_name.title()
                 areas = np.array([float(x) for x in student[f"areas_supervisor{j+1}"][2:-2].split(", ")])
@@ -270,6 +278,9 @@ def handle_report():
         "email": data["email"],
         "category": data["category"],
         "issue": data["issue"],
+        "student name": data["phd_name"],
+        "supervisor name": data["supervisor"],
+        "publication": data["publication"],
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
 

@@ -205,11 +205,12 @@ input:checked + .slider:before {
     overflow: hidden;
     background-color: rgb(0,0,0);
     background-color: rgba(0,0,0,0.4);
+    justify-content: center;
+    align-items: center;
 }
 
 .modal-content {
     background-color: #fefefe;
-    margin: 10vh auto;
     padding: 20px;
     border: 1px solid #888;
     width: 80%;
@@ -272,7 +273,7 @@ form button:hover {
     cursor: pointer;
 }
 
-#filter_container{
+#filter_container,#search_container{
     background-color: rgb(237, 246, 255);
     padding: 10px;
     border-radius: 10px;
@@ -322,4 +323,8 @@ button:active{
     border:none;
     border-radius: 20px;
     padding : 6px;
+}
+
+.supervisor_name_input, .publication_title{
+    display: none;
 }
