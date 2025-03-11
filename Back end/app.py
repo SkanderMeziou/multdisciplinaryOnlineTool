@@ -35,7 +35,8 @@ datasets = {}
 for filename in [
     "coordinates.csv",
     # "matchings_2_supervisors.csv",
-    "phd_students.h5"
+    "phd_students.parquet",
+    "embedding_MDS_600D.csv"
 ]:
     file_path = input_dir / filename
     if file_path.exists():
@@ -56,10 +57,15 @@ matching_df = pd.DataFrame(datasets["phd_students"])
 main_df = matching_df.copy()
 nb_sups = 2
 coordinates_df = datasets["coordinates"]
+coordinates_df_journ = datasets["embedding_MDS_600D"]
 disciplines = coordinates_df.iloc[:, 0].tolist()
+journaux = coordinates_df_journ.iloc[:, 0].tolist()
 coordinates_df = coordinates_df.iloc[:, 1:]
+coordinates_df_journ = coordinates_df_journ.iloc[:, 1:]
 matrix_coord = coordinates_df.to_numpy()
+matrix_coord_journ = coordinates_df_journ.to_numpy()
 embedded = TSNE(n_components=2, learning_rate='auto', random_state=42, perplexity=5).fit_transform(matrix_coord)
+embedded_journ = TSNE(n_components=2, learning_rate='auto', random_state=42, perplexity=5).fit_transform(matrix_coord_journ)
 n = len(disciplines)
 disc_colors = (px.colors.qualitative.Set2 + px.colors.qualitative.Set1 + px.colors.qualitative.Set3)[:n]
 
@@ -133,25 +139,45 @@ def update_graph():
     # Create a dataframe to plot
     df_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "text_position"])
     # Add disciplines
-    for i, disc in enumerate(disciplines):
-        df_to_plot.loc[len(df_to_plot)] = {
-            "x": embedded[i, 0],
-            "y": embedded[i, 1],
-            "type": "discipline",
-            "name": disc,
-            "color": disc_colors[i],
-            "size": 30,
-            "text": disc,
-            "label": disc,
-            "text_position": "middle center"
-        }
+    journalsEmbedding = request.args.get("journEmb")=="1"
+    print(journalsEmbedding)
+    if journalsEmbedding:
+        print("on fais le plot selon les journaux...")
+        for i, disc in enumerate(journaux):
+            df_to_plot.loc[len(df_to_plot)] = {
+                "x": embedded_journ[i, 0],
+                "y": embedded_journ[i, 1],
+                "type": "journal",
+                "name": disc,
+                "color": "magenta",
+                "size": 30,
+                "text": disc,
+                "label": disc,
+                "text_position": "middle center"
+            }
+    else: 
+        for i, disc in enumerate(disciplines):
+            df_to_plot.loc[len(df_to_plot)] = {
+                "x": embedded[i, 0],
+                "y": embedded[i, 1],
+                "type": "discipline",
+                "name": disc,
+                "color": disc_colors[i],
+                "size": 30,
+                "text": disc,
+                "label": disc,
+                "text_position": "middle center"
+            }
 
     # Break down query parameters
     isShowSup = request.args.get("isShowSup") == "1"
+    
     phdIds = [int(phdId) for phdId in request.args.get("phd").split(",")]
 
     # Retrieve the data of the PhD students
     phdStudents = main_df[main_df["id_scopus_student"].isin(phdIds)]
+
+
 
     for i, student in phdStudents.iterrows():
         print("Processing student : ",student["name_student"])
@@ -212,11 +238,11 @@ def update_graph():
                     "label": label+"<br>"+label2,
                     "text_position": "top right"
                 }
-
-    fig = go.Figure(go.Scatter(
+    if journalsEmbedding == 1:
+        fig = go.Figure(go.Scatter(
         x=df_to_plot["x"].tolist(),
         y=df_to_plot["y"].tolist(),
-        mode='markers+text',
+        mode='markers',
         marker=dict(
             color=df_to_plot["color"].tolist(),
             size=df_to_plot["size"].tolist(),
@@ -225,7 +251,21 @@ def update_graph():
         hoverinfo='text',
         hovertext=df_to_plot["label"].tolist(),
         textposition=df_to_plot["text_position"].tolist()
-    ))
+        ))
+    else:
+        fig = go.Figure(go.Scatter(
+            x=df_to_plot["x"].tolist(),
+            y=df_to_plot["y"].tolist(),
+            mode='markers+text',
+            marker=dict(
+                color=df_to_plot["color"].tolist(),
+                size=df_to_plot["size"].tolist(),
+            ),
+            text=df_to_plot["name"].tolist(),
+            hoverinfo='text',
+            hovertext=df_to_plot["label"].tolist(),
+            textposition=df_to_plot["text_position"].tolist()
+        ))
 
     x = df_to_plot["x"]
     y = df_to_plot["y"]

@@ -1,5 +1,6 @@
 let selectedPhDs = new Set();
 let showSupervisors = false;
+let embeddingMode = false;
 const nb_sups = 2;
 
 async function filter_supervisors(discs) {
@@ -247,6 +248,10 @@ function toggleSupervisors() {
     showSupervisors = document.getElementById("showSupervisors").checked;
     updateGraphWithAllPhDs().then(() => console.log("Graphique mis à jour"));
 }
+function toggleJournals() {
+    embeddingMode = document.getElementById("embeddingMode").checked;
+    updateGraphWithAllPhDs().then(() => console.log("Graphique mis à jour"));
+}
 
 async function updateGraphWithAllPhDs() {
     if (selectedPhDs.size === 0) {
@@ -259,18 +264,23 @@ async function updateGraphWithAllPhDs() {
         const phdId = `${phd["id_scopus_student"]}`;
         phdParams.push(phdId);
     });
+    if(embeddingMode == true){
+        isJourn=1;}
+    else{
+        isJourn=0;}
+
     if (showSupervisors) {
-        await updateGraph(1, phdParams.join(','),);
+        await updateGraph(isJourn,1, phdParams.join(','),);
     }
     else {
-        await updateGraph(0, phdParams.join(','));
+        await updateGraph(isJourn,0, phdParams.join(','));
     }
 }
 
-window.updateGraph = async function updateGraph(isShowSups, phdIds) {
+window.updateGraph = async function updateGraph(isJourn,isShowSups, phdIds) {
     console.log("📡 Envoi de la requête AJAX pour le graphique...");
     try {
-        let response = await fetch(`/update_graph?isShowSup=${isShowSups}&phd=${phdIds}`);
+        let response = await fetch(`/update_graph?journEmb=${isJourn}&isShowSup=${isShowSups}&phd=${phdIds}`);
         let graphJSON = await response.json();
         console.log("📊 Graphique reçu, mise à jour...");
         const graphDiv = document.getElementById("graph");
