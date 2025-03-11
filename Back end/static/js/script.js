@@ -4,7 +4,20 @@ const nb_sups = 2;
 
 async function filter_supervisors(discs) {
     console.log("ca fait des trucs");
-    let url = `/filter?discs=` + discs;
+    let url = `/filter_supervisors?discs=` + discs;
+    console.log("📡 Envoi de la requête :", url);
+    try {
+        await fetch(url, { method: "GET" }); // No need to handle response
+        console.log("Request sent successfully.");
+    } catch (error) {
+        console.error("Error sending request:", error);
+    }
+}
+
+async function filter_students() {
+    let multidisciplinarity_value = document.getElementById("multidisciplinarity_input").value;
+    let nb_pubs_value = document.getElementById("nb_pubs_input").value;
+    let url = `/filter?multidisciplinarity=`+ multidisciplinarity_value+`&nb_pubs=`+nb_pubs_value;
     console.log("📡 Envoi de la requête :", url);
     let loader = document.createElement("div");
         loader.className = "loader";
@@ -13,7 +26,7 @@ async function filter_supervisors(discs) {
             <div></div>
             <div></div>
         `;
-        let filtersDiv = document.getElementById("supervisor_disc_filter");
+        let filtersDiv = document.getElementById("filter_container");
         filtersDiv.appendChild(loader);
     try {
         await fetch(url, { method: "GET" }); // No need to handle response
@@ -23,7 +36,7 @@ async function filter_supervisors(discs) {
     }
     // launch search again
     filtersDiv.removeChild(loader);
-    await searchWithQuery(document.getElementById("search").value.trim());
+    await searchThese();
 }
 
 function clearResults() {
@@ -76,7 +89,15 @@ let debounceTimeout;
 async function searchWithQuery(query, resultsDiv) {
     let url = `/search?q=${query}&columns_search=name_student&columns_show=name_student,discipline_student_scopus,id_scopus_student,num_pubs_student`;
     console.log("📡 Envoi de la requête :", url);
-
+    resultsDiv.innerHTML="";
+    let loader = document.createElement("div");
+    loader.className = "loader";
+    loader.innerHTML = `
+        <div></div>
+        <div></div>
+        <div></div>
+    `;
+    resultsDiv.appendChild(loader);
     try {
         let response = await fetch(url);
         if (!response.ok) {
@@ -84,9 +105,6 @@ async function searchWithQuery(query, resultsDiv) {
         }
         let data = await response.json();
         console.log("📩 Réponse reçue :", data);
-
-        resultsDiv.innerHTML = "";
-
         if (data.error) {
             resultsDiv.innerHTML = `<p style="color: red;">⚠️ ${data.error}</p>`;
             return;
@@ -117,6 +135,7 @@ async function searchWithQuery(query, resultsDiv) {
         resultsDiv.innerHTML = `<p style="color: red;">🚨 Erreur lors de la recherche.</p>`;
         console.error("Erreur :", error);
     }
+    resultsDiv.removeChild(loader);
 }
 async function searchThese() {
     clearTimeout(debounceTimeout);
@@ -126,15 +145,7 @@ async function searchThese() {
 
         if (query.length === 0) return;
 
-        let loader = document.createElement("div");
-        loader.className = "loader";
-        loader.innerHTML = `
-            <div></div>
-            <div></div>
-            <div></div>
-        `;
         let resultsDiv = document.getElementById("results");
-        resultsDiv.appendChild(loader);
 
         await searchWithQuery(query, resultsDiv);
     }, 1000);

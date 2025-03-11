@@ -273,6 +273,11 @@ form button:hover {
     cursor: pointer;
 }
 
+#filter_container{
+    font-size: large;
+    margin-bottom: 20px;
+}
+
 #filter_container,#search_container{
     background-color: rgb(237, 246, 255);
     padding: 10px;
@@ -283,17 +288,18 @@ form button:hover {
 
 #supervisor_disc_filter {
     display: inline;
-    font-size: large;
 }
 
-#supervisor_disc_filter select {
+#supervisor_disc_filter select, #multidisciplinarity_input{
     border-radius: 16px;
     margin: 5px;
     border:none;
+    padding: 6px;
+}
+
+#supervisor_disc_filter select{
     background-color: rgb(90, 130, 173);
     color: #ffffff;
-    padding: 6px;
-    
 }
 
 #supervisor_disc_filter select:hover{
@@ -309,7 +315,6 @@ button {
     color: #ffffff;
     padding: 6px;
 }
-
 
 button:hover{
     background-color: rgb(77, 105, 135);
@@ -327,4 +332,17 @@ button:active{
 
 .supervisor_name_input, .publication_title{
     display: none;
+}
+
+input[type="number"]{
+    border-radius: 16px;
+    padding: 6px;
+    border: none;
+    margin: 5px;
+}
+
+#filter_button{
+    float: right;
+    font-size: large;
+    background-color: #2196F3;
 }

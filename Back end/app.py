@@ -51,17 +51,21 @@ for filename in [
         print(f"Fichier manquant : {file_path}")
 
 
-# Initialisation des variables globales
+# Initialisation des variables dataset
 matching_df = pd.DataFrame(datasets["phd_students"])
-main_df = matching_df.copy()
-nb_sups = 2
 coordinates_df = datasets["coordinates"]
+# Récupération des disciplines et des coordonnées
 disciplines = coordinates_df.iloc[:, 0].tolist()
 coordinates_df = coordinates_df.iloc[:, 1:]
 matrix_coord = coordinates_df.to_numpy()
-embedded = TSNE(n_components=2, learning_rate='auto', random_state=42, perplexity=5).fit_transform(matrix_coord)
+# Création d'un DataFrame pour les données à traiter
+main_df = matching_df.copy()
+# Initialisation des variables
+disc_filters = []
+nb_sups = 2
 n = len(disciplines)
 disc_colors = (px.colors.qualitative.Set2 + px.colors.qualitative.Set1 + px.colors.qualitative.Set3)[:n]
+embedded = TSNE(n_components=2, learning_rate='auto', random_state=42, perplexity=5).fit_transform(matrix_coord)
 
 print("Datasets chargés avec succès :", list(datasets.keys()))
 
@@ -76,16 +80,35 @@ def row_satisfies_conditions(values, filters_param):
             filters_param.remove(disc_filter)
     return filters_param == [''] or filters_param == []
 
-@app.route("/filter")
-def filter_with_sup_discs():
+@app.route("/filter_supervisors")
+def filter_supervisors():
+    global disc_filters
     disc_filters = [disc for disc in request.args.get("discs").split(",")]
+    return "", 204  # No response content
+
+@app.route("/filter")
+def filter_students():
     global main_df
     main_df = matching_df.copy()
-    # List of all supervisor discipline columns
-    discipline_columns = [f"discipline_supervisor{i}_scopus" for i in range(1, nb_sups+1)]
 
-    mask = main_df.apply(lambda row: row_satisfies_conditions(row[discipline_columns].values, disc_filters.copy()), axis=1)
-    main_df = main_df[mask]
+    mask = pd.Series(True, index=main_df.index)  # Start with all True
+
+    nb_pub_filter = int(request.args.get("nb_pubs"))
+    if nb_pub_filter > 0:
+        mask &= main_df["num_pubs_student"] >= nb_pub_filter
+
+    multidisciplinary_filter = float(request.args.get("multidisciplinarity"))
+    if multidisciplinary_filter > 0:
+        mask &= main_df["distance_areas_supervisors"] >= multidisciplinary_filter
+
+    if disc_filters:
+        # List of all supervisor discipline columns
+        discipline_columns = [f"discipline_supervisor{i}_scopus" for i in range(1, nb_sups + 1)]
+        mask &= main_df.apply(lambda row: row_satisfies_conditions(row[discipline_columns].values, disc_filters.copy()),
+                             axis=1)
+
+    if not mask.all() :
+        main_df = main_df[mask]
 
     return "", 204  # No response content
 
