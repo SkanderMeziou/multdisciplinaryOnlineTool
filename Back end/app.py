@@ -158,17 +158,34 @@ def update_graph():
         main_disc = student["discipline_student_scopus"]
         student_name = student["name_student"].title()
         areas = np.array([float(x) for x in student["areas_student"][2:-2].split(", ")])
-        pubs = areas*int(student["num_pubs_student"])
-        # to int values
-        pubs = [int(x) for x in pubs]
-        labeled_pubs = dict(zip(disciplines, pubs))
-        labeled_pubs = {k: v for k, v in sorted(labeled_pubs.items(), key=lambda item: item[1], reverse=True)}
-        # remove zero values
-        labeled_pubs = {k: v for k, v in labeled_pubs.items() if v != 0}
-        labeled_pubs = [f"{disc} ({pub})" for disc, pub in labeled_pubs.items()]
-        label = f"{student_name} ({main_disc}) {labeled_pubs}"
-        coordinates = areas.dot(embedded)
-        color = disc_colors[np.argmax(areas)] if areas.sum() > 0 else disc_colors[list.index(disciplines, main_disc)]
+        nb_pub_student = int(student["num_pubs_student"])
+
+        if nb_pub_student != 0:
+            pubs = areas*nb_pub_student
+            # to int values
+            pubs = [int(x) for x in pubs]
+            labeled_pubs = dict(zip(disciplines, pubs))
+            labeled_pubs = {k: v for k, v in sorted(labeled_pubs.items(), key=lambda item: item[1], reverse=True)}
+            # remove zero values
+            labeled_pubs = {k: v for k, v in labeled_pubs.items() if v != 0}
+            labeled_pubs = [f"{disc} ({pub})" for disc, pub in labeled_pubs.items()]
+            label = f"{student_name} ({main_disc}) {labeled_pubs}"
+            #compute coordinates
+            coordinates = areas.dot(embedded)
+            color = disc_colors[np.argmax(areas)] if areas.sum() > 0 else disc_colors[
+                list.index(disciplines, main_disc)]
+        else:
+            #special label
+            label = f"{student_name} ({main_disc}) has no publication"
+            #give baricenter of supervisors for coordinates
+            supervisors = [student[f"name_supervisor{i}"] for i in range(1, nb_sups+1)]
+            supervisors = [sup for sup in supervisors if type(sup) == str and sup != "nan" and sup != ""]
+            supervisors_coords = [
+                np.array([float(x) for x in student[f"areas_supervisor{i}"][2:-2].split(", ")]).dot(embedded)
+                for i in range(1, len(supervisors)+1)
+            ]
+            coordinates = np.mean(supervisors_coords, axis=0)
+            color = "black"
         df_to_plot.loc[len(df_to_plot)] = {
             "x": coordinates[0],
             "y": coordinates[1],
