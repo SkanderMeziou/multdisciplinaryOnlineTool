@@ -28,20 +28,20 @@
             </div>
             <br>
             <div id="search_container">
-                <label for="search">Nom du thésard :</label>
+                <label for="randomSearch">Aléatoire :</label>
+                <input id="randomSearch" type="number" min="1" value="10">
+                <button id="randomSearch_btn" onclick="selectRandomPhDs()">🔎</button>
                 <br>
+                <hr>
+                <div id="search_input">
+                <label for="search">Nom du doctorant :</label>
                 <input type="text" id="search" onkeyup="searchThese()" placeholder="Tapez pour rechercher...">
                 <button id="all_clear" class="remove-btn" onclick="clearResults()">✕</button>
-                <button class="tenRandom">Aléatoire (10)</button>
-                <div id="results"></div>
-                <div class="controls">
-                    <label class="toggle">
-                        <input type="checkbox" id="showSupervisors" onchange="toggleSupervisors()">
-                        <span class="slider">-</span><span> Afficher les superviseurs</span>
-                    </label>
-                    |
-                    <button id="clear" onclick="deleteAll();">Retirer tous les étudiants</button>
                 </div>
+                <br>
+                <div id="results"></div>
+                <br>
+                <button id="clear" onclick="deleteAll();">Retirer tous les étudiants</button>
                 <div id="selectedPhDs" class="selected-items"></div>
             </div>
         </div>
@@ -87,6 +87,12 @@
                 </div>
             </div>
             <div id="graph"></div>
+            <div class="controls">
+                    <label class="toggle">
+                        <input type="checkbox" id="showSupervisors" onchange="toggleSupervisors()">
+                        <span class="slider">-</span><span> Afficher les superviseurs</span>
+                    </label>
+            </div>
         </div>
     </div>
 </body>

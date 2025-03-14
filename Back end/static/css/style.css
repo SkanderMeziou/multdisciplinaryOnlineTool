@@ -84,11 +84,10 @@ body{
 }
 
 #graphPart {
-    width:60vw;
+    width:70vw;
     order: 2;
     padding: 12px;
-    overflow: scroll;
-    overflow-y: auto;
+    overflow-y: hidden;
     overflow-x: hidden;
 }
 
@@ -184,10 +183,6 @@ input:checked + .slider {
 
 input:checked + .slider:before {
     transform: translateX(26px);
-}
-
-.controls {
-    margin: 20px 0;
 }
 
 #selectedPhDs:empty{
@@ -345,4 +340,9 @@ input[type="number"]{
     float: right;
     font-size: large;
     background-color: #2196F3;
+}
+
+#randomSearch_btn{
+    background-color: transparent;
+    font-size: larger;
 }
