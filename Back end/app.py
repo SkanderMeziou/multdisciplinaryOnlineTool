@@ -7,6 +7,7 @@ from sklearn.manifold import TSNE
 import plotly.express as px
 from datetime import datetime
 import json
+import time
 
 app = Flask(__name__)
 REPORTS_FILE = "reports.json"
@@ -153,6 +154,7 @@ def search():
 
 @app.route("/update_graph")
 def update_graph():
+    begin = time.time()
     # Create a dataframe to plot
     df_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "text_position"])
     # Add disciplines
@@ -174,10 +176,18 @@ def update_graph():
     phdIds = [int(phdId) for phdId in request.args.get("phd").split(",")]
 
     # Retrieve the data of the PhD students
-    phdStudents = main_df[main_df["id_scopus_student"].isin(phdIds)]
+    # phdStudents = main_df[main_df["id_scopus_student"].isin(phdIds)]
 
-    for i, student in phdStudents.iterrows():
-        print("Processing student : ",student["name_student"])
+    discs_done = time.time()
+
+    # Sample all the PhD students
+    phdStudents = main_df.sort_values(by=["distance_areas_supervisors","id_scopus_student"], ascending=False)
+    sample_size = len(phdStudents)
+    loop_index = 1
+    for i, student in phdStudents.head(sample_size).iterrows():
+        # print("Processing student : ",student["name_student"])
+        print(f"Processing student {loop_index}/{sample_size} ")
+        loop_index += 1
         main_disc = student["discipline_student_scopus"]
         student_name = student["name_student"].title()
         areas = np.array([float(x) for x in student["areas_student"][2:-2].split(", ")])
@@ -209,6 +219,9 @@ def update_graph():
             ]
             coordinates = np.mean(supervisors_coords, axis=0)
             color = "black"
+        color = disc_colors[np.argmax(areas)] if areas.sum() > 0 else disc_colors[
+            list.index(disciplines, main_disc)]
+        label = f"{student_name} ({student["distance_areas_supervisors"]})"
         df_to_plot.loc[len(df_to_plot)] = {
             "x": coordinates[0],
             "y": coordinates[1],
@@ -253,31 +266,41 @@ def update_graph():
                     "text_position": "top right"
                 }
 
-    fig = go.Figure(go.Scatter(
+    people_done = time.time()
+
+    fig = go.Figure(go.Scattergl(
         x=df_to_plot["x"].tolist(),
         y=df_to_plot["y"].tolist(),
-        mode='markers+text',
+        mode='markers',
         marker=dict(
             color=df_to_plot["color"].tolist(),
             size=df_to_plot["size"].tolist(),
-        ),
-        text=df_to_plot["name"].tolist(),
-        hoverinfo='text',
-        hovertext=df_to_plot["label"].tolist(),
-        textposition=df_to_plot["text_position"].tolist()
+        )
+        # text=df_to_plot["name"].tolist(),
+        # hoverinfo='text',
+        # hovertext=df_to_plot["label"].tolist(),
+        # textposition=df_to_plot["text_position"].tolist()
     ))
+
+    fig_done = time.time()
+    with open("./results/times.txt", "a") as f:
+        f.write(f"Discs : {discs_done-begin}\n"
+                f"People : {people_done-discs_done}\n"
+                f"Fig : {fig_done-people_done}\n"
+                f"Total : {fig_done-begin}\n\n")
 
     x = df_to_plot["x"]
     y = df_to_plot["y"]
     colors = df_to_plot["color"]
+
     # Add arrows
     arrows = []
-    if len(x) > len(disciplines):
-        for i in range(len(disciplines), len(x)):
-            arrows.append(create_arrow(x[i], y[i], colors[i]))
-
-    for arrow in arrows:
-        fig.add_annotation(arrow)
+    # if len(x) > len(disciplines):
+    #     for i in range(len(disciplines), len(x)):
+    #         arrows.append(create_arrow(x[i], y[i], colors[i]))
+    #
+    # for arrow in arrows:
+    #     fig.add_annotation(arrow)
 
     fig.update_layout(
     #     title="Plot with Lines and Vectors",
@@ -288,7 +311,13 @@ def update_graph():
         yaxis = dict(showticklabels=False)
     )
 
-    # fig.write_image("fig1.png")
+    fig.write_image(f"./results/fig{sample_size}.png")
+    fig.write_html(f"./results/fig{sample_size}.html")
+
+    # Save the data to a parquet file
+    path = "../data"
+    if Path(path).exists():
+        df_to_plot.to_parquet(path + "/df_to_plot.parquet")
 
     return fig.to_json()
 
