@@ -3,4 +3,6 @@ PER_temp_files
 data
 Back end/reports.json
 .venv
+Back end/results
+Back end/test_plot
 
