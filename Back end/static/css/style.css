@@ -346,3 +346,8 @@ input[type="number"]{
     font-size: large;
     background-color: #2196F3;
 }
+
+#randomSearch_btn{
+    background-color: transparent;
+    font-size: larger;
+}

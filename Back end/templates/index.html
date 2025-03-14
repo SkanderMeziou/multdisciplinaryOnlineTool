@@ -28,11 +28,17 @@
             </div>
             <br>
             <div id="search_container">
-                <label for="search">Nom du thésard :</label>
+                <label for="randomSearch">Aléatoire :</label>
+                <input id="randomSearch" type="number" min="1" value="10">
+                <button id="randomSearch_btn" onclick="selectRandomPhDs()">🔎</button>
                 <br>
-                <input type="text" id="search" onkeyup="searchThese()" placeholder="Tapez pour rechercher...">
-                <button id="all_clear" class="remove-btn" onclick="clearResults()">✕</button>
-                <button class="tenRandom">Aléatoire (10)</button>
+                <hr>
+                <div id="search_input">
+                    <label for="search">Nom du doctorant :</label>
+                    <input type="text" id="search" onkeyup="searchThese()" placeholder="Tapez pour rechercher...">
+                    <button id="all_clear" class="remove-btn" onclick="clearResults()">✕</button>
+                </div>
+                <br>
                 <div id="results"></div>
                 <div class="controls">
                     <label class="toggle">

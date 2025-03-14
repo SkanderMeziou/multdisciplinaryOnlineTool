@@ -393,10 +393,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelector(".tenRandom").addEventListener("click", selectRandomPhDs);
-});
-
 async function selectRandomPhDs() {
     let resultsDiv = document.getElementById("results");
     let availablePhDs = Array.from(resultsDiv.getElementsByClassName("resultatTheses"));
@@ -406,7 +402,8 @@ async function selectRandomPhDs() {
         return selectRandomPhDs();
     }
 
-    let count = Math.min(10, availablePhDs.length);
+    let nbPhDs = document.getElementById("randomSearch").value;
+    let count = Math.min(nbPhDs, availablePhDs.length);
     let selected = getRandomElements(availablePhDs, count);
 
     let phdsToAdd = [];
