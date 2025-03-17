@@ -34,7 +34,6 @@ input_dir = Path(__file__).resolve().parent.parent / "data"
 datasets = {}
 for filename in [
     "coordinates.csv",
-    # "matchings_2_supervisors.csv",
     "phd_students.h5"
 ]:
     file_path = input_dir / filename
@@ -46,6 +45,9 @@ for filename in [
                 dataset = pd.read_parquet(file_path, engine="pyarrow")
             case ".h5":
                 dataset = pd.read_hdf(file_path)
+            case _:
+                print(f"Format de fichier non pris en charge : {file_path}")
+                continue
         datasets[filename.split(".")[0]] = dataset
     else:
         print(f"Fichier manquant : {file_path}")
@@ -115,6 +117,16 @@ def filter_students():
 @app.route("/search")
 def search():
     name = request.args.get("q", "").strip().lower()
+    # Take into account french special characters é è ê à â ç ï î ô ù û
+    character_dict = str.maketrans({
+        "é": "e", "è": "e", "ê": "e",
+        "à": "a", "â": "a",
+        "ç": "c",
+        "ï": "i", "î": "i",
+        "ô": "o",
+        "ù": "u", "û": "u"
+    })
+    name = name.translate(character_dict)
 
     columns_search_str = request.args.get("columns_search", "") # Récupère les colonnes comme une chaîne
     columns_search = columns_search_str.split(",")  # Décompose les colonnes en liste
