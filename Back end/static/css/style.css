@@ -346,3 +346,16 @@ input[type="number"]{
     background-color: transparent;
     font-size: larger;
 }
+
+#filters_extend{
+    overflow-y: hidden;
+}
+
+.filter_badge{
+    background-color: #5a82ad;
+    color: white;
+    border-radius: 16px;
+    padding: 6px;
+    margin: 5px;
+    font-size: small;
+}

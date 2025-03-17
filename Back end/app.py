@@ -161,21 +161,22 @@ def search():
 def update_graph():
     begin = time.time()
     # Create a dataframe to plot
-    df_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "text_position"])
+    df_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "marker_symbol", "text_position", "nb_pubs"])
     # Add disciplines
-    for i, disc in enumerate(disciplines):
-        df_to_plot.loc[len(df_to_plot)] = {
-            "x": embedded[i, 0],
-            "y": embedded[i, 1],
-            "type": "discipline",
-            "name": disc,
-            "color": disc_colors[i],
-            "size": 30,
-            "text": disc,
-            "label": disc,
-            "marker_symbol": "circle",
-            "text_position": "middle center"
-        }
+    # for i, disc in enumerate(disciplines):
+    #     df_to_plot.loc[len(df_to_plot)] = {
+    #         "x": embedded[i, 0],
+    #         "y": embedded[i, 1],
+    #         "type": "discipline",
+    #         "name": disc,
+    #         "color": disc_colors[i],
+    #         "size": 30,
+    #         "text": disc,
+    #         "label": disc,
+    #         "marker_symbol": "circle",
+    #         "text_position": "middle center",
+    #         "nb_pubs": 0
+    #     }
 
     # Break down query parameters
     isShowSup = request.args.get("isShowSup") == "1"
@@ -234,8 +235,9 @@ def update_graph():
             "size": 10,
             "text": student_name,
             "label": label,
-            "marker_symbol": "triangle",
-            "text_position": "top left"
+            "marker_symbol": "triangle-up",
+            "text_position": "top left",
+            "nb_pubs": nb_pub_student
         }
         if isShowSup :
             # Retrieve the data of the supervisors
@@ -264,7 +266,7 @@ def update_graph():
                     "type": "supervisor",
                     "name": supervisor_name,
                     "color": disc_colors[disc_index],
-                    "size": 20,
+                    "size": 10,
                     "text": supervisor_name,
                     "label": label+"<br>"+label2,
                     "marker_symbol": "square",
@@ -278,8 +280,10 @@ def update_graph():
         y=df_to_plot["y"].tolist(),
         mode='markers',
         marker=dict(
-            color=df_to_plot["color"].tolist(),
+            color = df_to_plot["nb_pubs"].tolist(),
+            colorscale='Viridis',
             size=df_to_plot["size"].tolist(),
+            symbol=df_to_plot["marker_symbol"].tolist()
         )
         # text=df_to_plot["name"].tolist(),
         # hoverinfo='text',
