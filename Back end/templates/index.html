@@ -40,14 +40,8 @@
                 </div>
                 <br>
                 <div id="results"></div>
-                <div class="controls">
-                    <label class="toggle">
-                        <input type="checkbox" id="showSupervisors" onchange="toggleSupervisors()">
-                        <span class="slider">-</span><span> Afficher les superviseurs</span>
-                    </label>
-                    |
-                    <button id="clear" onclick="deleteAll();">Retirer tous les étudiants</button>
-                </div>
+                <br>
+                <button id="clear" onclick="deleteAll();">Retirer tous les étudiants</button>
                 <div id="selectedPhDs" class="selected-items"></div>
             </div>
         </div>
@@ -93,6 +87,12 @@
                 </div>
             </div>
             <div id="graph"></div>
+            <div class="controls">
+                    <label class="toggle">
+                        <input type="checkbox" id="showSupervisors" onchange="toggleSupervisors()">
+                        <span class="slider">-</span><span> Afficher les superviseurs</span>
+                    </label>
+            </div>
         </div>
     </div>
 </body>
