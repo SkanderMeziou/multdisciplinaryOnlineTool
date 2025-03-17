@@ -7,6 +7,7 @@ from sklearn.manifold import TSNE
 import plotly.express as px
 from datetime import datetime
 import json
+from unidecode import unidecode
 
 app = Flask(__name__)
 REPORTS_FILE = "reports.json"
@@ -117,16 +118,8 @@ def filter_students():
 @app.route("/search")
 def search():
     name = request.args.get("q", "").strip().lower()
-    # Take into account french special characters é è ê à â ç ï î ô ù û
-    character_dict = str.maketrans({
-        "é": "e", "è": "e", "ê": "e",
-        "à": "a", "â": "a",
-        "ç": "c",
-        "ï": "i", "î": "i",
-        "ô": "o",
-        "ù": "u", "û": "u"
-    })
-    name = name.translate(character_dict)
+    # Take into account french special characters
+    name = unidecode(name)
 
     columns_search_str = request.args.get("columns_search", "") # Récupère les colonnes comme une chaîne
     columns_search = columns_search_str.split(",")  # Décompose les colonnes en liste
@@ -178,6 +171,7 @@ def update_graph():
             "size": 30,
             "text": disc,
             "label": disc,
+            "marker_symbol": "circle",
             "text_position": "middle center"
         }
 
@@ -230,6 +224,7 @@ def update_graph():
             "size": 10,
             "text": student_name,
             "label": label,
+            "marker_symbol": "triangle",
             "text_position": "top left"
         }
         if isShowSup :
@@ -262,6 +257,7 @@ def update_graph():
                     "size": 20,
                     "text": supervisor_name,
                     "label": label+"<br>"+label2,
+                    "marker_symbol": "square",
                     "text_position": "top right"
                 }
 
