@@ -9,6 +9,7 @@ from datetime import datetime
 import json
 from unidecode import unidecode
 import time
+from math import log
 
 app = Flask(__name__)
 REPORTS_FILE = "reports.json"
@@ -70,6 +71,8 @@ nb_sups = 2
 n = len(disciplines)
 disc_colors = (px.colors.qualitative.Set2 + px.colors.qualitative.Set1 + px.colors.qualitative.Set3)[:n]
 embedded = TSNE(n_components=2, learning_rate='auto', random_state=42, perplexity=5).fit_transform(matrix_coord)
+
+figure_category = "heatmap"
 
 print("Datasets chargés avec succès :", list(datasets.keys()))
 
@@ -162,21 +165,23 @@ def update_graph():
     begin = time.time()
     # Create a dataframe to plot
     df_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "marker_symbol", "text_position", "nb_pubs"])
+    disc_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "marker_symbol", "text_position", "nb_pubs"])
     # Add disciplines
-    # for i, disc in enumerate(disciplines):
-    #     df_to_plot.loc[len(df_to_plot)] = {
-    #         "x": embedded[i, 0],
-    #         "y": embedded[i, 1],
-    #         "type": "discipline",
-    #         "name": disc,
-    #         "color": disc_colors[i],
-    #         "size": 30,
-    #         "text": disc,
-    #         "label": disc,
-    #         "marker_symbol": "circle",
-    #         "text_position": "middle center",
-    #         "nb_pubs": 0
-    #     }
+    for i, disc in enumerate(disciplines):
+        disc_to_plot.loc[len(disc_to_plot)] = {
+            "x": embedded[i, 0],
+            "y": embedded[i, 1],
+            "type": "discipline",
+            "name": disc,
+            "color": disc_colors[i],
+            "size": 30,
+            "text": disc,
+            "label": disc,
+            "marker_symbol": "circle",
+            "text_position": "middle center",
+            "nb_pubs": 0
+        }
+    # print(disc_to_plot)
 
     # Break down query parameters
     isShowSup = request.args.get("isShowSup") == "1"
@@ -188,7 +193,9 @@ def update_graph():
     discs_done = time.time()
 
     # Sample all the PhD students
-    phdStudents = main_df.sort_values(by=["distance_areas_supervisors","id_scopus_student"], ascending=False)
+    phdStudents = main_df.sort_values(by=["num_pubs_student","id_scopus_student"], ascending=True)
+    # Filter out people with more than 100 publications
+    # phdStudents = phdStudents[phdStudents["num_pubs_student"] <= 40]
     sample_size = len(phdStudents)
     loop_index = 1
     for i, student in phdStudents.head(sample_size).iterrows():
@@ -232,12 +239,12 @@ def update_graph():
             "type": "phd",
             "name": student_name,
             "color": color,
-            "size": 10,
+            "size": 6,
             "text": student_name,
             "label": label,
-            "marker_symbol": "triangle-up",
+            "marker_symbol": "circle",
             "text_position": "top left",
-            "nb_pubs": nb_pub_student
+            "nb_pubs": log(nb_pub_student+1)
         }
         if isShowSup :
             # Retrieve the data of the supervisors
@@ -275,21 +282,47 @@ def update_graph():
 
     people_done = time.time()
 
-    fig = go.Figure(go.Scattergl(
+    fig = go.Figure()
+
+    phd_trace = go.Scatter(
+        name="PhD students",
         x=df_to_plot["x"].tolist(),
         y=df_to_plot["y"].tolist(),
         mode='markers',
         marker=dict(
-            color = df_to_plot["nb_pubs"].tolist(),
-            colorscale='Viridis',
+            color=df_to_plot["nb_pubs"].tolist(),
+            colorscale='Plasma',
             size=df_to_plot["size"].tolist(),
-            symbol=df_to_plot["marker_symbol"].tolist()
-        )
+            symbol=df_to_plot["marker_symbol"].tolist(),
+            colorbar=dict(title='Log Number of publications'),
+            line=dict(width=0),
+        ),
+        opacity=1,
         # text=df_to_plot["name"].tolist(),
-        # hoverinfo='text',
-        # hovertext=df_to_plot["label"].tolist(),
+        hoverinfo='text',
+        hovertext=df_to_plot["nb_pubs"].tolist(),
         # textposition=df_to_plot["text_position"].tolist()
-    ))
+    )
+    disc_trace = go.Scatter(
+        name="Disciplines",
+        x=disc_to_plot["x"].tolist(),
+        y=disc_to_plot["y"].tolist(),
+        mode='markers+text',
+        marker=dict(
+            color=disc_to_plot["color"].tolist(),
+            size=disc_to_plot["size"].tolist(),
+            symbol=disc_to_plot["marker_symbol"].tolist(),
+            line=dict(width=0),
+        ),
+        text=disc_to_plot["text"].tolist(),
+        textposition=disc_to_plot["text_position"].tolist(),
+        hoverinfo='text',
+        hovertext=disc_to_plot["label"].tolist(),
+        opacity=1
+    )
+
+    fig.add_trace(phd_trace)
+    fig.add_trace(disc_trace)
 
     fig_done = time.time()
     with open("./results/times.txt", "a") as f:
@@ -311,23 +344,27 @@ def update_graph():
     # for arrow in arrows:
     #     fig.add_annotation(arrow)
 
+    # show legend for scatter plot
     fig.update_layout(
-    #     title="Plot with Lines and Vectors",
-    #     xaxis_title="X Axis",
-    #     yaxis_title="Y Axis",
-    #     showlegend=False
+        showlegend=True,
         xaxis = dict(showticklabels=False),
-        yaxis = dict(showticklabels=False)
+        yaxis = dict(showticklabels=False),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
     )
-
-    fig.write_image(f"./results/fig{sample_size}.png")
-    fig.write_html(f"./results/fig{sample_size}.html")
+    fig.write_image(f"./results/fig{sample_size}_{figure_category}.png")
+    fig.write_html(f"./results/fig{sample_size}_{figure_category}.html")
 
     # Save the data to a parquet file
-    path = "../data"
-    if Path(path).exists():
-        df_to_plot.to_parquet(path + "/df_to_plot.parquet")
-
+    # path = "../data"
+    # if Path(path).exists():
+    #     df_to_plot.to_parquet(path + "/df_to_plot.parquet")
+    #
     return fig.to_json()
 
 # Charger les reports existants (ou créer un fichier vide)
