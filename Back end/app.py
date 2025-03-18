@@ -3,6 +3,7 @@ from flask import Flask, request, render_template, jsonify
 import pandas as pd
 from pathlib import Path
 import plotly.graph_objects as go  # ✅ Ajoute cette ligne !
+from plotly.subplots import make_subplots
 from sklearn.manifold import TSNE
 import plotly.express as px
 from datetime import datetime
@@ -160,6 +161,7 @@ def search():
 def update_graph():
     # Create a dataframe to plot
     df_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "text_position"])
+    disc_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "text_position"])
     # Add disciplines
     for i, disc in enumerate(disciplines):
         df_to_plot.loc[len(df_to_plot)] = {
@@ -261,7 +263,9 @@ def update_graph():
                     "text_position": "top right"
                 }
 
-    fig = go.Figure(go.Scatter(
+    # Create the figure
+    phdStudents_go = go.Scatter(
+        name = "PhD Students",
         x=df_to_plot["x"].tolist(),
         y=df_to_plot["y"].tolist(),
         mode='markers+text',
@@ -273,7 +277,10 @@ def update_graph():
         hoverinfo='text',
         hovertext=df_to_plot["label"].tolist(),
         textposition=df_to_plot["text_position"].tolist()
-    ))
+    )
+
+    fig_student = go.Figure()
+    fig_student.add_trace(phdStudents_go)
 
     x = df_to_plot["x"]
     y = df_to_plot["y"]
@@ -285,20 +292,34 @@ def update_graph():
             arrows.append(create_arrow(x[i], y[i], colors[i]))
 
     for arrow in arrows:
-        fig.add_annotation(arrow)
+        fig_student.add_annotation(arrow)
 
-    fig.update_layout(
-    #     title="Plot with Lines and Vectors",
-    #     xaxis_title="X Axis",
-    #     yaxis_title="Y Axis",
-    #     showlegend=False
+    fig_student.update_layout(
         xaxis = dict(showticklabels=False),
         yaxis = dict(showticklabels=False)
     )
 
     # fig.write_image("fig1.png")
 
-    return fig.to_json()
+    fig_stats = go.Figure()
+    # Additional statistical plots on shown students
+    if phdStudents.shape[0] > 0:
+        # Number of publications per student colored according to their discipline
+        fig_stats.add_trace(
+            go.Bar(
+                name="Students Publications",
+                x=phdStudents["name_student"].tolist(),
+                y=phdStudents["num_pubs_student"].tolist(),
+                marker=dict(
+                    color=[disc_colors[disciplines.index(disc)] for disc in phdStudents["discipline_student_scopus"]]
+                ),
+                text=phdStudents["discipline_student_scopus"],
+                textposition="auto"
+            )
+        )
+
+    return {"graph" : fig_student.to_json(),
+            "stats" : fig_stats.to_json()}
 
 # Charger les reports existants (ou créer un fichier vide)
 def load_reports():
