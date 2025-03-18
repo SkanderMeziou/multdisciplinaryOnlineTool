@@ -295,6 +295,7 @@ def update_graph():
         fig_student.add_annotation(arrow)
 
     fig_student.update_layout(
+        title="PhD Students and Supervisors",
         xaxis = dict(showticklabels=False),
         yaxis = dict(showticklabels=False)
     )
@@ -304,19 +305,20 @@ def update_graph():
     fig_stats = go.Figure()
     # Additional statistical plots on shown students
     if phdStudents.shape[0] > 0:
-        # Number of publications per student colored according to their discipline
+        # Number of students per number of publications
         fig_stats.add_trace(
             go.Bar(
-                name="Students Publications",
-                x=phdStudents["name_student"].tolist(),
-                y=phdStudents["num_pubs_student"].tolist(),
-                marker=dict(
-                    color=[disc_colors[disciplines.index(disc)] for disc in phdStudents["discipline_student_scopus"]]
-                ),
-                text=phdStudents["discipline_student_scopus"],
-                textposition="auto"
+                name="Number of students per number of publications",
+                x=phdStudents["num_pubs_student"].value_counts().index,
+                y=phdStudents["num_pubs_student"].value_counts().values,
+                marker=dict(color="lightblue")
             )
         )
+    fig_stats.update_layout(
+        title="Statistics",
+        xaxis_title="Number of publications",
+        yaxis_title="Number of students"
+    )
 
     return {"graph" : fig_student.to_json(),
             "stats" : fig_stats.to_json()}
