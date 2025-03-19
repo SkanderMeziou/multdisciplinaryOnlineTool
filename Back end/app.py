@@ -382,8 +382,7 @@ def update_graph():
     #
     # return {"graph" : fig_student.to_json(),
     #         "stats" : fig_stats.to_json()}
-    return {"graph" : fig_student.to_json()}
-
+    return {"graph": fig_student.to_json()}
 
 
 # Charger les reports existants (ou créer un fichier vide)
