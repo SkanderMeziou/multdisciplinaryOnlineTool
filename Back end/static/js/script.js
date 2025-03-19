@@ -309,6 +309,17 @@ function toggleSupervisors() {
     updateGraphWithAllPhDs().then(() => console.log("Graphique mis à jour"));
 }
 
+function toggleStatistics(){
+    if(document.getElementById("showStatistics").checked === true){
+        console.log("show statistics")
+        console.log(document.getElementById("statistics").checked)
+        document.getElementById("statistics").style.display = "block";
+    }
+    else{
+        document.getElementById("statistics").style.display = "none";
+    }
+}
+
 async function updateGraphWithAllPhDs() {
     if (selectedPhDs.size === 0) {
         document.getElementById("graph").innerHTML = "";
@@ -332,10 +343,17 @@ window.updateGraph = async function updateGraph(isShowSups, phdIds) {
     console.log("📡 Envoi de la requête AJAX pour le graphique...");
     try {
         let response = await fetch(`/update_graph?isShowSup=${isShowSups}&phd=${phdIds}`);
-        let graphJSON = await response.json();
+        let responseJSON = await response.json();
+        let graph = JSON.parse(responseJSON.graph);
+        let stats = JSON.parse(responseJSON.stats);
+
         console.log("📊 Graphique reçu, mise à jour...");
+
         const graphDiv = document.getElementById("graph");
-        Plotly.newPlot(graphDiv, graphJSON.data, graphJSON.layout);
+        Plotly.newPlot(graphDiv, graph.data, graph.layout);
+
+        const statsDiv = document.getElementById("statistics");
+        Plotly.newPlot(statsDiv, stats.data, stats.layout);
     } catch (error) {
         console.error("🚨 Erreur lors de la mise à jour du graphique :", error);
     }
