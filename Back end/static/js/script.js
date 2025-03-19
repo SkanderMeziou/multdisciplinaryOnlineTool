@@ -309,6 +309,17 @@ function toggleSupervisors() {
     updateGraphWithAllPhDs().then(() => console.log("Graphique mis à jour"));
 }
 
+function toggleStatistics(){
+    if(document.getElementById("showStatistics").checked === true){
+        console.log("show statistics")
+        console.log(document.getElementById("statistics").checked)
+        document.getElementById("statistics").style.display = "block";
+    }
+    else{
+        document.getElementById("statistics").style.display = "none";
+    }
+}
+
 async function updateGraphWithAllPhDs() {
     if (selectedPhDs.size === 0) {
         document.getElementById("graph").innerHTML = "";
@@ -333,14 +344,19 @@ window.updateGraph = async function updateGraph(isShowSups, phdIds) {
     console.log("📡 Envoi de la requête AJAX pour le graphique...");
     try {
         let response = await fetch(`/update_graph?isShowSup=${isShowSups}&phd=${phdIds}`);
-        let graphJSON = await response.json();
+        let responseJSON = await response.json();
+        let graph = JSON.parse(responseJSON.graph);
+        // let stats = JSON.parse(responseJSON.stats);
         console.log("📊 Graphique reçu, mise à jour...");
+
         const graphDiv = document.getElementById("graph");
         let plot_time_response = new Date().getTime();
         Plotly.newPlot(graphDiv, graphJSON.data, graphJSON.layout);
         let plot_time_end = new Date().getTime();
         console.log("📈 Graphique reçu en", plot_time_response - plot_time_start, "ms");
         console.log("📈 Graphique mis à jour en", plot_time_end - plot_time_response, "ms");
+        // const statsDiv = document.getElementById("statistics");
+        // Plotly.newPlot(statsDiv, stats.data, stats.layout);
     } catch (error) {
         console.error("🚨 Erreur lors de la mise à jour du graphique :", error);
     }

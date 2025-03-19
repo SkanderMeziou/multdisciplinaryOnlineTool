@@ -181,7 +181,6 @@ def update_graph():
             "text_position": "middle center",
             "nb_pubs": 0
         }
-    # print(disc_to_plot)
 
     # Break down query parameters
     isShowSup = request.args.get("isShowSup") == "1"
@@ -282,9 +281,9 @@ def update_graph():
 
     people_done = time.time()
 
-    fig = go.Figure()
+    fig_student = go.Figure()
 
-    phd_trace = go.Scatter(
+    phdStudents_go = go.Scatter(
         name="PhD students",
         x=df_to_plot["x"].tolist(),
         y=df_to_plot["y"].tolist(),
@@ -321,8 +320,7 @@ def update_graph():
         opacity=1
     )
 
-    fig.add_trace(phd_trace)
-    fig.add_trace(disc_trace)
+    fig_student.add_trace(phdStudents_go)
 
     fig_done = time.time()
     with open("./results/times.txt", "a") as f:
@@ -345,7 +343,7 @@ def update_graph():
     #     fig.add_annotation(arrow)
 
     # show legend for scatter plot
-    fig.update_layout(
+    fig_student.update_layout(
         showlegend=True,
         xaxis = dict(showticklabels=False),
         yaxis = dict(showticklabels=False),
@@ -357,15 +355,36 @@ def update_graph():
             x=1
         )
     )
-    fig.write_image(f"./results/fig{sample_size}_{figure_category}.png")
-    fig.write_html(f"./results/fig{sample_size}_{figure_category}.html")
+    fig_student.write_image(f"./results/fig{sample_size}_{figure_category}.png")
+    fig_student.write_html(f"./results/fig{sample_size}_{figure_category}.html")
 
+    # fig_stats = go.Figure()
+    # # Additional statistical plots on shown students
+    # if phdStudents.shape[0] > 0:
+    #     # Number of students per number of publications
+    #     fig_stats.add_trace(
+    #         go.Bar(
+    #             name="Number of students per number of publications",
+    #             x=phdStudents["num_pubs_student"].value_counts().index,
+    #             y=phdStudents["num_pubs_student"].value_counts().values,
+    #             marker=dict(color="lightblue")
+    #         )
+    #     )
+    # fig_stats.update_layout(
+    #     title="Statistics",
+    #     xaxis_title="Number of publications",
+    #     yaxis_title="Number of students"
+    # )
     # Save the data to a parquet file
     # path = "../data"
     # if Path(path).exists():
     #     df_to_plot.to_parquet(path + "/df_to_plot.parquet")
     #
-    return fig.to_json()
+    # return {"graph" : fig_student.to_json(),
+    #         "stats" : fig_stats.to_json()}
+    return {"graph" : fig_student.to_json()}
+
+
 
 # Charger les reports existants (ou créer un fichier vide)
 def load_reports():
