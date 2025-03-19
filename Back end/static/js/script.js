@@ -1,6 +1,8 @@
 let selectedPhDs = new Set();
 let showSupervisors = false;
 const nb_sups = 2;
+let sup_filters = []
+const active_filters = {"Sups_in" : [], "Nb_pus_min" : 0, "Multidisciplinarity_min" : 0};
 
 async function filter_supervisors(discs) {
     console.log("ca fait des trucs");
@@ -12,13 +14,49 @@ async function filter_supervisors(discs) {
     } catch (error) {
         console.error("Error sending request:", error);
     }
+    sup_filters = discs.split(",");
+}
+
+function extendFilters() {
+    let filtersDiv = document.getElementById("filters_extend");
+    let button = document.getElementById("filter_button");
+    if (filtersDiv.style.height === "0px") {
+        // Show filters
+        filtersDiv.style.height = "auto";
+        button.innerText = "Filtrer";
+        button.onclick = async function() {await filter_students()};
+    }
+    document.getElementById("active_filters").innerHTML = "";
+}
+
+function summarize_filters() {
+    let summary = document.createElement("div");
+    summary.className = "filter_summary";
+    summary.textContent = "Filtres actifs :";
+    for (let disc in active_filters["Sups_in"]){
+        let sups = document.createElement("span");
+        sups.textContent = active_filters["Sups_in"][disc];
+        sups.className = "filter_badge";
+        summary.appendChild(sups);
+    }
+    let nb_pubs = document.createElement("span");
+    nb_pubs.textContent = "#pub ≥ " + active_filters["Nb_pus_min"];
+    nb_pubs.className = "filter_badge";
+    summary.appendChild(nb_pubs);
+    let multidisc = document.createElement("span");
+    multidisc.textContent = "°mult ≥ " + active_filters["Multidisciplinarity_min"];
+    multidisc.className = "filter_badge";
+    summary.appendChild(multidisc);
+    return summary;
 }
 
 async function filter_students() {
     let multidisciplinarity_value = document.getElementById("multidisciplinarity_input").value;
     let nb_pubs_value = document.getElementById("nb_pubs_input").value;
     let url = `/filter?multidisciplinarity=`+ multidisciplinarity_value+`&nb_pubs=`+nb_pubs_value;
+
     console.log("📡 Envoi de la requête :", url);
+    document.getElementById("filter_button").innerText = "Annuler";
     let loader = document.createElement("div");
         loader.className = "loader";
         loader.innerHTML = `
@@ -26,8 +64,8 @@ async function filter_students() {
             <div></div>
             <div></div>
         `;
-        let filtersDiv = document.getElementById("filter_container");
-        filtersDiv.appendChild(loader);
+    let filtersDiv = document.getElementById("filter_container");
+    filtersDiv.appendChild(loader);
     try {
         await fetch(url, { method: "GET" }); // No need to handle response
         console.log("Request sent successfully.");
@@ -36,6 +74,19 @@ async function filter_students() {
     }
     // launch search again
     filtersDiv.removeChild(loader);
+    active_filters["Sups_in"] = [];
+    for (let nb = 0 ; nb < nb_sups ; nb++){
+        if (nb < sup_filters.length) active_filters["Sups_in"].push(sup_filters[nb]);
+        else active_filters["Sups_in"].push("Toutes");
+    }
+    active_filters["Nb_pus_min"] = nb_pubs_value;
+    active_filters["Multidisciplinarity_min"] = multidisciplinarity_value;
+    let filters_summary = summarize_filters();
+    document.getElementById("active_filters").appendChild(filters_summary);
+    document.getElementById("filters_extend").style.height = "0px";
+    let button = document.getElementById("filter_button");
+    button.innerText = "↓";
+    button.onclick = function() {extendFilters()};
     await searchThese();
 }
 
@@ -43,7 +94,6 @@ function clearResults() {
     document.getElementById("results").innerHTML = "";
     document.getElementById("search").value = "";
 }
-
 
 document.addEventListener('DOMContentLoaded', function() {
     let disciplines = ['AGRI', 'ARTS', 'BIOC', 'BUSI', 'CENG', 'CHEM', 'COMP', 'DECI', 'DENT', 'EART',
@@ -401,6 +451,7 @@ async function selectRandomPhDs() {
         await searchWithQuery("", resultsDiv);
         return selectRandomPhDs();
     }
+
     let nbPhDs = document.getElementById("randomSearch").value;
     let count = Math.min(nbPhDs, availablePhDs.length);
     let selected = getRandomElements(availablePhDs, count);
