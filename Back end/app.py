@@ -159,7 +159,7 @@ def search():
 @app.route("/update_graph")
 def update_graph():
     # Create a dataframe to plot
-    df_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "text_position"])
+    df_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "marker_symbol", "text_position"])
     # Add disciplines
     for i, disc in enumerate(disciplines):
         df_to_plot.loc[len(df_to_plot)] = {
@@ -224,7 +224,7 @@ def update_graph():
             "size": 10,
             "text": student_name,
             "label": label,
-            "marker_symbol": "triangle",
+            "marker_symbol": "triangle-up",
             "text_position": "top left"
         }
         if isShowSup :
@@ -254,7 +254,7 @@ def update_graph():
                     "type": "supervisor",
                     "name": supervisor_name,
                     "color": disc_colors[disc_index],
-                    "size": 20,
+                    "size": 10,
                     "text": supervisor_name,
                     "label": label+"<br>"+label2,
                     "marker_symbol": "square",
@@ -268,6 +268,7 @@ def update_graph():
         marker=dict(
             color=df_to_plot["color"].tolist(),
             size=df_to_plot["size"].tolist(),
+            symbol=df_to_plot["marker_symbol"].tolist()
         ),
         text=df_to_plot["name"].tolist(),
         hoverinfo='text',
