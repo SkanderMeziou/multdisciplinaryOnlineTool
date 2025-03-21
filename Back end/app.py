@@ -306,18 +306,24 @@ def update_graph():
     # Additional statistical plots on shown students
     if phdStudents.shape[0] > 0:
         # Number of students per number of publications
+        nb_publications, counts = np.unique(phdStudents["num_pubs_student"], return_counts=True)
         fig_stats.add_trace(
-            go.Bar(
-                name="Number of students per number of publications",
-                x=phdStudents["num_pubs_student"].value_counts().index,
-                y=phdStudents["num_pubs_student"].value_counts().values,
-                marker=dict(color="lightblue")
+            go.Pie(
+                name="Distribution of Number of Publications",
+                values=counts,
+                labels=nb_publications,
+                marker=dict(
+                    colors=px.colors.sequential.Blues_r,
+                ),
+                hoverinfo='label+value+percent',
+                textinfo='label+percent',
             )
         )
     fig_stats.update_layout(
         title="Statistics",
         xaxis_title="Number of publications",
-        yaxis_title="Number of students"
+        yaxis_title="Number of students",
+        showlegend=True
     )
 
     return {"graph" : fig_student.to_json(),
