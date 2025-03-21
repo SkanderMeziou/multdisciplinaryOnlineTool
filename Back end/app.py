@@ -10,6 +10,7 @@ import json
 from unidecode import unidecode
 import time
 from scipy import stats
+import math
 
 app = Flask(__name__)
 REPORTS_FILE = "reports.json"
@@ -191,14 +192,15 @@ def update_graph():
 
     discs_done = time.time()
     global df_to_plot
-    df_to_plot = df_to_plot.sort_values(by=["nb_pubs"], ascending=False)
+    df_to_plot = df_to_plot.sort_values(by=["name"], ascending=False)
     # ignore the phd students with coordinates 0,0 or on discipline coordinates
-    disc_xs = list(disc_to_plot["x"])
-    disc_ys = list(disc_to_plot["y"])
-    df_to_plot = df_to_plot[
-        ((~df_to_plot["x"].isin(disc_xs)) | (~df_to_plot["y"].isin(disc_ys))) &
-        ((df_to_plot["x"]!=0) | (df_to_plot["y"]!=0))
-    ]
+    # disc_xs = list(disc_to_plot["x"])
+    # disc_ys = list(disc_to_plot["y"])
+    # df_to_plot = df_to_plot[
+    #     ((~df_to_plot["x"].isin(disc_xs)) | (~df_to_plot["y"].isin(disc_ys))) &
+    #     ((df_to_plot["x"]!=0) | (df_to_plot["y"]!=0))
+    # ]
+    df_to_plot = df_to_plot[df_to_plot["nb_pubs"] > 0]
 
     print("sorting done")
     # Sample all the PhD students
@@ -293,17 +295,14 @@ def update_graph():
 
     # fig_student = go.Figure()
 
-    phdStudents_go = go.Scatter(
+    phdStudents_go = go.Scattergl(
         name="PhD students",
         x=df_to_plot["x"].tolist(),
         y=df_to_plot["y"].tolist(),
         mode='markers',
         marker=dict(
-            color=df_to_plot["nb_pubs"].tolist(),
-            colorscale='Plasma',
-            size=df_to_plot["size"].tolist(),
-            colorbar=dict(title='Log number of publications'),
-            line=dict(width=0),
+            color=df_to_plot["color"].tolist(),
+            size=df_to_plot["size"].tolist()
         ),
         opacity=1,
         # text=df_to_plot["name"].tolist(),
@@ -314,7 +313,7 @@ def update_graph():
     print("phdStudents_go done")
 
     hist, x_edges, y_edges, binnumber = stats.binned_statistic_2d(
-        df_to_plot["x"].tolist(), df_to_plot["y"].tolist(), df_to_plot["nb_pubs"].tolist(), statistic='mean', bins=[150,100]
+        df_to_plot["x"].tolist(), df_to_plot["y"].tolist(), [math.exp(nb) for nb in df_to_plot["nb_pubs"].tolist()], statistic='mean', bins=[150,100]
     )
     # Convert 0 values to NaN for transparency
     hist = np.where(hist == 0, np.nan, hist)  # Set 0s to NaN
@@ -324,7 +323,8 @@ def update_graph():
         y = y_edges[:-1],
         z = hist.T,
         colorscale="Plasma",
-        colorbar=dict(title='Log number of publications'),
+        hovertext=df_to_plot["nb_pubs"].tolist(),
+        colorbar=dict(title='Number of publications'),
         showscale=True,
         showlegend=True
     )
@@ -443,10 +443,10 @@ def update_graph():
 
     # fig_pubs_heatmap.write_image(f"./results/fig{sample_size}_productivity_heatmap.png")
     # fig_pubs_heatmap.write_html(f"./results/fig{sample_size}_productivity_heatmap.html")
-    fig_density_heatmap.write_image(f"./results/fig{sample_size}_density_heatmap_test.png")
-    fig_density_heatmap.write_html(f"./results/fig{sample_size}_density_heatmap_test.html")
-    # fig_student.write_image(f"./results/fig{sample_size}_productivity_asc.png")
-    # fig_student.write_html(f"./results/fig{sample_size}_productivity_asc.html")
+    # fig_density_heatmap.write_image(f"./results/fig{sample_size}_density_heatmap_test.png")
+    # fig_density_heatmap.write_html(f"./results/fig{sample_size}_density_heatmap_test.html")
+    fig_student.write_image(f"./results/fig{sample_size}.png")
+    fig_student.write_html(f"./results/fig{sample_size}.html")
     # figure.write_image(f"./results/fig{sample_size}_all.png")
     # figure.write_html(f"./results/fig{sample_size}_all.html")
 
@@ -477,7 +477,7 @@ def update_graph():
     # return {"graph" : fig_student.to_json(),
     #         "stats" : fig_stats.to_json()}
     print("sending fig_student")
-    return {"graph": fig_density_heatmap.to_json()}
+    return {"graph": fig_student.to_json()}
 
 
 # Charger les reports existants (ou créer un fichier vide)
