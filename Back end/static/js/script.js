@@ -351,7 +351,7 @@ window.updateGraph = async function updateGraph(isShowSups, phdIds) {
 
         const graphDiv = document.getElementById("graph");
         let plot_time_response = new Date().getTime();
-        Plotly.newPlot(graphDiv, graphJSON.data, graphJSON.layout);
+        Plotly.newPlot(graphDiv, graph.data, graph.layout);
         let plot_time_end = new Date().getTime();
         console.log("📈 Graphique reçu en", plot_time_response - plot_time_start, "ms");
         console.log("📈 Graphique mis à jour en", plot_time_end - plot_time_response, "ms");

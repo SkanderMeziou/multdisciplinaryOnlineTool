@@ -9,7 +9,7 @@ from datetime import datetime
 import json
 from unidecode import unidecode
 import time
-from math import log
+from scipy import stats
 
 app = Flask(__name__)
 REPORTS_FILE = "reports.json"
@@ -37,7 +37,8 @@ input_dir = Path(__file__).resolve().parent.parent / "data"
 datasets = {}
 for filename in [
     "coordinates.csv",
-    "phd_students.h5"
+    "phd_students.h5",
+    "df_to_plot.parquet"
 ]:
     file_path = input_dir / filename
     if file_path.exists():
@@ -58,6 +59,7 @@ for filename in [
 
 # Initialisation des variables dataset
 matching_df = pd.DataFrame(datasets["phd_students"])
+df_to_plot = datasets["df_to_plot"]
 coordinates_df = datasets["coordinates"]
 # Récupération des disciplines et des coordonnées
 disciplines = coordinates_df.iloc[:, 0].tolist()
@@ -71,8 +73,6 @@ nb_sups = 2
 n = len(disciplines)
 disc_colors = (px.colors.qualitative.Set2 + px.colors.qualitative.Set1 + px.colors.qualitative.Set3)[:n]
 embedded = TSNE(n_components=2, learning_rate='auto', random_state=42, perplexity=5).fit_transform(matrix_coord)
-
-figure_category = "heatmap"
 
 print("Datasets chargés avec succès :", list(datasets.keys()))
 
@@ -164,7 +164,7 @@ def search():
 def update_graph():
     begin = time.time()
     # Create a dataframe to plot
-    df_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "marker_symbol", "text_position", "nb_pubs"])
+    # df_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "marker_symbol", "text_position", "nb_pubs"])
     disc_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "marker_symbol", "text_position", "nb_pubs"])
     # Add disciplines
     for i, disc in enumerate(disciplines):
@@ -183,105 +183,115 @@ def update_graph():
         }
 
     # Break down query parameters
-    isShowSup = request.args.get("isShowSup") == "1"
-    phdIds = [int(phdId) for phdId in request.args.get("phd").split(",")]
+    # isShowSup = request.args.get("isShowSup") == "1"
+    # phdIds = [int(phdId) for phdId in request.args.get("phd").split(",")]
 
     # Retrieve the data of the PhD students
     # phdStudents = main_df[main_df["id_scopus_student"].isin(phdIds)]
 
     discs_done = time.time()
+    global df_to_plot
+    df_to_plot = df_to_plot.sort_values(by=["nb_pubs"], ascending=False)
+    # ignore the phd students with coordinates 0,0 or on discipline coordinates
+    disc_xs = list(disc_to_plot["x"])
+    disc_ys = list(disc_to_plot["y"])
+    df_to_plot = df_to_plot[
+        ((~df_to_plot["x"].isin(disc_xs)) | (~df_to_plot["y"].isin(disc_ys))) &
+        ((df_to_plot["x"]!=0) | (df_to_plot["y"]!=0))
+    ]
 
+    print("sorting done")
     # Sample all the PhD students
-    phdStudents = main_df.sort_values(by=["num_pubs_student","id_scopus_student"], ascending=True)
+    # phdStudents = main_df.sort_values(by=["num_pubs_student","id_scopus_student"], ascending=True)
     # Filter out people with more than 100 publications
-    # phdStudents = phdStudents[phdStudents["num_pubs_student"] <= 40]
-    sample_size = len(phdStudents)
+    sample_size = len(main_df)
     loop_index = 1
-    for i, student in phdStudents.head(sample_size).iterrows():
-        # print("Processing student : ",student["name_student"])
-        print(f"Processing student {loop_index}/{sample_size} ")
-        loop_index += 1
-        main_disc = student["discipline_student_scopus"]
-        student_name = student["name_student"].title()
-        areas = np.array([float(x) for x in student["areas_student"][2:-2].split(", ")])
-        nb_pub_student = int(student["num_pubs_student"])
-
-        if nb_pub_student != 0:
-            pubs = areas*nb_pub_student
-            # to int values
-            pubs = [int(x) for x in pubs]
-            labeled_pubs = dict(zip(disciplines, pubs))
-            labeled_pubs = {k: v for k, v in sorted(labeled_pubs.items(), key=lambda item: item[1], reverse=True)}
-            # remove zero values
-            labeled_pubs = {k: v for k, v in labeled_pubs.items() if v != 0}
-            labeled_pubs = [f"{disc} ({pub})" for disc, pub in labeled_pubs.items()]
-            label = f"{student_name} ({main_disc}) {labeled_pubs}"
-            #compute coordinates
-            coordinates = areas.dot(embedded)
-            color = disc_colors[np.argmax(areas)] if areas.sum() > 0 else disc_colors[
-                list.index(disciplines, main_disc)]
-        else:
-            #special label
-            label = f"{student_name} ({main_disc}) has no publication"
-            #give baricenter of supervisors for coordinates
-            supervisors = [student[f"name_supervisor{i}"] for i in range(1, nb_sups+1)]
-            supervisors = [sup for sup in supervisors if type(sup) == str and sup != "nan" and sup != ""]
-            supervisors_coords = [
-                np.array([float(x) for x in student[f"areas_supervisor{i}"][2:-2].split(", ")]).dot(embedded)
-                for i in range(1, len(supervisors)+1)
-            ]
-            coordinates = np.mean(supervisors_coords, axis=0)
-            color = "black"
-        df_to_plot.loc[len(df_to_plot)] = {
-            "x": coordinates[0],
-            "y": coordinates[1],
-            "type": "phd",
-            "name": student_name,
-            "color": color,
-            "size": 6,
-            "text": student_name,
-            "label": label,
-            "marker_symbol": "circle",
-            "text_position": "top left",
-            "nb_pubs": log(nb_pub_student+1)
-        }
-        if isShowSup :
-            # Retrieve the data of the supervisors
-            supervisors = [student[f"name_supervisor{i}"] for i in range(1, nb_sups+1)]
-            for j, supervisor_name in enumerate(supervisors):
-                if not supervisor_name or supervisor_name == "nan" or supervisor_name == "" or type(supervisor_name) != str:
-                    continue
-                supervisor_name = supervisor_name.title()
-                areas = np.array([float(x) for x in student[f"areas_supervisor{j+1}"][2:-2].split(", ")])
-                pubs = areas*int(student[f"num_pubs_supervisor{j+1}"])
-                # to int value
-                pubs = [int(x) for x in pubs]
-                labeled_pubs = dict(zip(disciplines, pubs))
-                labeled_pubs = {k: v for k, v in sorted(labeled_pubs.items(), key=lambda item: item[1], reverse=True)}
-                # remove zero values
-                labeled_pubs = {k: v for k, v in labeled_pubs.items() if v != 0}
-                labeled_pubs = [f"{disc} ({pub})" for disc, pub in labeled_pubs.items()]
-                disc_index = np.argmax(areas)
-                main_disc = disciplines[disc_index]
-                label = f"{supervisor_name} ({main_disc}) {labeled_pubs}"
-                label2 = f"supervises {student_name}"
-                coordinates = areas.dot(embedded)
-                df_to_plot.loc[len(df_to_plot)] = {
-                    "x": coordinates[0],
-                    "y": coordinates[1],
-                    "type": "supervisor",
-                    "name": supervisor_name,
-                    "color": disc_colors[disc_index],
-                    "size": 10,
-                    "text": supervisor_name,
-                    "label": label+"<br>"+label2,
-                    "marker_symbol": "square",
-                    "text_position": "top right"
-                }
+    # for i, student in phdStudents.head(sample_size).iterrows():
+    #     # print("Processing student : ",student["name_student"])
+    #     if loop_index%100 == 0:
+    #         print(f"Processing student {loop_index}/{sample_size} ")
+    #     loop_index += 1
+    #     main_disc = student["discipline_student_scopus"]
+    #     student_name = student["name_student"].title()
+    #     areas = np.array([float(x) for x in student["areas_student"][2:-2].split(", ")])
+    #     nb_pub_student = int(student["num_pubs_student"])
+    #
+    #     if nb_pub_student != 0:
+    #         pubs = areas*nb_pub_student
+    #         # to int values
+    #         pubs = [int(x) for x in pubs]
+    #         labeled_pubs = dict(zip(disciplines, pubs))
+    #         labeled_pubs = {k: v for k, v in sorted(labeled_pubs.items(), key=lambda item: item[1], reverse=True)}
+    #         # remove zero values
+    #         labeled_pubs = {k: v for k, v in labeled_pubs.items() if v != 0}
+    #         labeled_pubs = [f"{disc} ({pub})" for disc, pub in labeled_pubs.items()]
+    #         label = f"{student_name} ({main_disc}) {labeled_pubs}"
+    #         #compute coordinates
+    #         coordinates = areas.dot(embedded)
+    #         color = disc_colors[np.argmax(areas)] if areas.sum() > 0 else disc_colors[
+    #             list.index(disciplines, main_disc)]
+    #     else:
+    #         #special label
+    #         label = f"{student_name} ({main_disc}) has no publication"
+    #         #give baricenter of supervisors for coordinates
+    #         supervisors = [student[f"name_supervisor{i}"] for i in range(1, nb_sups+1)]
+    #         supervisors = [sup for sup in supervisors if type(sup) == str and sup != "nan" and sup != ""]
+    #         supervisors_coords = [
+    #             np.array([float(x) for x in student[f"areas_supervisor{i}"][2:-2].split(", ")]).dot(embedded)
+    #             for i in range(1, len(supervisors)+1)
+    #         ]
+    #         coordinates = np.mean(supervisors_coords, axis=0)
+    #         color = "black"
+    #     df_to_plot.loc[len(df_to_plot)] = {
+    #         "x": coordinates[0],
+    #         "y": coordinates[1],
+    #         "type": "phd",
+    #         "name": student_name,
+    #         "color": color,
+    #         "size": 4,
+    #         "text": student_name,
+    #         "label": label,
+    #         "marker_symbol": "circle",
+    #         "text_position": "top left",
+    #         "nb_pubs": log(nb_pub_student+1)
+    #     }
+    #     if isShowSup :
+    #         # Retrieve the data of the supervisors
+    #         supervisors = [student[f"name_supervisor{i}"] for i in range(1, nb_sups+1)]
+    #         for j, supervisor_name in enumerate(supervisors):
+    #             if not supervisor_name or supervisor_name == "nan" or supervisor_name == "" or type(supervisor_name) != str:
+    #                 continue
+    #             supervisor_name = supervisor_name.title()
+    #             areas = np.array([float(x) for x in student[f"areas_supervisor{j+1}"][2:-2].split(", ")])
+    #             pubs = areas*int(student[f"num_pubs_supervisor{j+1}"])
+    #             # to int value
+    #             pubs = [int(x) for x in pubs]
+    #             labeled_pubs = dict(zip(disciplines, pubs))
+    #             labeled_pubs = {k: v for k, v in sorted(labeled_pubs.items(), key=lambda item: item[1], reverse=True)}
+    #             # remove zero values
+    #             labeled_pubs = {k: v for k, v in labeled_pubs.items() if v != 0}
+    #             labeled_pubs = [f"{disc} ({pub})" for disc, pub in labeled_pubs.items()]
+    #             disc_index = np.argmax(areas)
+    #             main_disc = disciplines[disc_index]
+    #             label = f"{supervisor_name} ({main_disc}) {labeled_pubs}"
+    #             label2 = f"supervises {student_name}"
+    #             coordinates = areas.dot(embedded)
+    #             df_to_plot.loc[len(df_to_plot)] = {
+    #                 "x": coordinates[0],
+    #                 "y": coordinates[1],
+    #                 "type": "supervisor",
+    #                 "name": supervisor_name,
+    #                 "color": disc_colors[disc_index],
+    #                 "size": 10,
+    #                 "text": supervisor_name,
+    #                 "label": label+"<br>"+label2,
+    #                 "marker_symbol": "square",
+    #                 "text_position": "top right"
+    #             }
 
     people_done = time.time()
 
-    fig_student = go.Figure()
+    # fig_student = go.Figure()
 
     phdStudents_go = go.Scatter(
         name="PhD students",
@@ -292,8 +302,7 @@ def update_graph():
             color=df_to_plot["nb_pubs"].tolist(),
             colorscale='Plasma',
             size=df_to_plot["size"].tolist(),
-            symbol=df_to_plot["marker_symbol"].tolist(),
-            colorbar=dict(title='Log Number of publications'),
+            colorbar=dict(title='Log number of publications'),
             line=dict(width=0),
         ),
         opacity=1,
@@ -302,6 +311,41 @@ def update_graph():
         hovertext=df_to_plot["nb_pubs"].tolist(),
         # textposition=df_to_plot["text_position"].tolist()
     )
+    print("phdStudents_go done")
+
+    hist, x_edges, y_edges, binnumber = stats.binned_statistic_2d(
+        df_to_plot["x"].tolist(), df_to_plot["y"].tolist(), df_to_plot["nb_pubs"].tolist(), statistic='mean', bins=[150,100]
+    )
+    # Convert 0 values to NaN for transparency
+    hist = np.where(hist == 0, np.nan, hist)  # Set 0s to NaN
+    pubs_heatmap = go.Heatmap(
+        name="Publications heatmap",
+        x = x_edges[:-1],
+        y = y_edges[:-1],
+        z = hist.T,
+        colorscale="Plasma",
+        colorbar=dict(title='Log number of publications'),
+        showscale=True,
+        showlegend=True
+    )
+    print("pubs_heatmap done")
+
+    density_heatmap = go.Histogram2d(
+        x=df_to_plot["x"],
+        y=df_to_plot["y"],
+        nbinsx=150,
+        nbinsy=100,
+        colorscale=["rgba(68, 1, 84,0)"]+px.colors.sequential.Viridis,
+        colorbar=dict(title="Density"),
+        name="Density heatmap",
+        showscale=True,
+        showlegend=True,
+        histnorm="density"
+    )
+    # print(px.colors.sequential.Viridis)
+    # print(df_to_plot.shape[0])
+    print("density_heatmap done")
+
     disc_trace = go.Scatter(
         name="Disciplines",
         x=disc_to_plot["x"].tolist(),
@@ -319,31 +363,18 @@ def update_graph():
         hovertext=disc_to_plot["label"].tolist(),
         opacity=1
     )
+    print("disc_trace done")
 
-    fig_student.add_trace(phdStudents_go)
+    fig_pubs_heatmap = go.Figure(pubs_heatmap)
+    fig_density_heatmap = go.Figure(density_heatmap)
+    fig_student = go.Figure(phdStudents_go)
 
-    fig_done = time.time()
-    with open("./results/times.txt", "a") as f:
-        f.write(f"Discs : {discs_done-begin}\n"
-                f"People : {people_done-discs_done}\n"
-                f"Fig : {fig_done-people_done}\n"
-                f"Total : {fig_done-begin}\n\n")
+    fig_pubs_heatmap.add_trace(disc_trace)
+    fig_density_heatmap.add_trace(disc_trace)
+    fig_student.add_trace(disc_trace)
 
-    x = df_to_plot["x"]
-    y = df_to_plot["y"]
-    colors = df_to_plot["color"]
-
-    # Add arrows
-    arrows = []
-    # if len(x) > len(disciplines):
-    #     for i in range(len(disciplines), len(x)):
-    #         arrows.append(create_arrow(x[i], y[i], colors[i]))
-    #
-    # for arrow in arrows:
-    #     fig.add_annotation(arrow)
-
-    # show legend for scatter plot
-    fig_student.update_layout(
+    fig_pubs_heatmap.update_layout(
+        title="Publications heatmap",
         showlegend=True,
         xaxis = dict(showticklabels=False),
         yaxis = dict(showticklabels=False),
@@ -355,8 +386,71 @@ def update_graph():
             x=1
         )
     )
-    fig_student.write_image(f"./results/fig{sample_size}_{figure_category}.png")
-    fig_student.write_html(f"./results/fig{sample_size}_{figure_category}.html")
+    fig_density_heatmap.update_layout(
+        title="Density heatmap",
+        showlegend=True,
+        xaxis = dict(showticklabels=False),
+        yaxis = dict(showticklabels=False),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        ),
+        # plot_bgcolor="rgb(0,0,0)",
+    )
+    fig_student.update_layout(
+        showlegend=True,
+        xaxis=dict(showticklabels=False),
+        yaxis=dict(showticklabels=False),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+
+    figure = go.Figure()
+    figure.add_trace(pubs_heatmap)
+    figure.add_trace(density_heatmap)
+    figure.add_trace(disc_trace)
+    figure.add_trace(phdStudents_go)
+    figure.update_layout(
+        title="Overlapping Figures",
+        showlegend=True,
+        xaxis=dict(showticklabels=False),
+        yaxis=dict(showticklabels=False),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+
+    print("figures done")
+
+    fig_done = time.time()
+    with open("./results/times.txt", "a") as f:
+        f.write(f"Discs : {discs_done-begin}\n"
+                f"People : {people_done-discs_done}\n"
+                f"Fig : {fig_done-people_done}\n"
+                f"Total : {fig_done-begin}\n\n")
+
+    # fig_pubs_heatmap.write_image(f"./results/fig{sample_size}_productivity_heatmap.png")
+    # fig_pubs_heatmap.write_html(f"./results/fig{sample_size}_productivity_heatmap.html")
+    fig_density_heatmap.write_image(f"./results/fig{sample_size}_density_heatmap_test.png")
+    fig_density_heatmap.write_html(f"./results/fig{sample_size}_density_heatmap_test.html")
+    # fig_student.write_image(f"./results/fig{sample_size}_productivity_asc.png")
+    # fig_student.write_html(f"./results/fig{sample_size}_productivity_asc.html")
+    # figure.write_image(f"./results/fig{sample_size}_all.png")
+    # figure.write_html(f"./results/fig{sample_size}_all.html")
+
+    print("figures saved")
 
     # fig_stats = go.Figure()
     # # Additional statistical plots on shown students
@@ -382,7 +476,8 @@ def update_graph():
     #
     # return {"graph" : fig_student.to_json(),
     #         "stats" : fig_stats.to_json()}
-    return {"graph": fig_student.to_json()}
+    print("sending fig_student")
+    return {"graph": fig_density_heatmap.to_json()}
 
 
 # Charger les reports existants (ou créer un fichier vide)
