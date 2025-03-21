@@ -140,13 +140,19 @@ body{
 .selected-item:hover {
     background-color: rgb(201, 213, 225);
 }
-.remove-btn {
+.remove-btn,.profile-btn {
     background: none;
     border: none;
     color: #ff4444;
     cursor: pointer;
     font-size: 18px;
     padding: 0 5px;
+}
+.profile-summary{
+    background-color: #b7d2f3;
+    padding: 8px 12px;
+    margin: 5px 0;
+    border-radius: 8px;
 }
 
 .toggle {

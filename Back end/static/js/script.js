@@ -226,6 +226,17 @@ function removePhD(id) {
     updateGraphWithAllPhDs().then(() => console.log("Graphique mis à jour"));
 }
 
+function profileSummaryShowHide(id){
+    const id_elt = id+'-summary'
+    let profileSummary = document.getElementById(id_elt)
+        if (profileSummary.style.display === "none"){
+            profileSummary.style.display = "block";
+        }
+        else {
+            profileSummary.style.display = "none" ;
+        }
+}
+
 function updateSelectedList() {
     const container = document.getElementById("selectedPhDs");
     container.innerHTML = "";
@@ -238,20 +249,35 @@ function updateSelectedList() {
         item.className = "selected-item";
         item.innerHTML = `
             <span>${fullName} (${nb_publications} publications)</span>
+            <span>
+            <button class="profile-btn" data-name="${fullName}">👁️‍🗨️</button>
             <button class="remove-btn" data-name="${fullName}"><b>✕</b></button>
+            </span>
         `;
-
+        const profileSummary = document.createElement("div")
+        profileSummary.className = "profile-summary"
+        profileSummary.id = `${phd["id_scopus_student"]}-summary`
+        profileSummary.style.display = "none"
+        profileSummary.innerHTML =
+            '<ul>' +
+                '<li>Nombre de publications : '+nb_publications+'</li>' +
+                '<li>Discipline principale : '+phd["discipline_student_scopus"]+'</li>' +
+            '</ul>'
         // Ajoute l'écouteur d'événement au bouton
         const removeBtn = item.querySelector('.remove-btn');
+        const profileBtn = item.querySelector('.profile-btn')
         removeBtn.addEventListener('click', function() {
             removePhD(id);
         });
+        profileBtn.addEventListener('click', function (){
+            profileSummaryShowHide(id);
+        })
 
         // Ajoute les écouteurs d'événements pour le survol
         item.addEventListener('mouseenter', () => highlightPhD(fullName));
         item.addEventListener('mouseleave', () => unhighlightPhD(fullName));
-
         container.appendChild(item);
+        container.appendChild(profileSummary)
     });
 }
 
@@ -344,8 +370,8 @@ window.updateGraph = async function updateGraph(isShowSups, phdIds) {
     try {
         let response = await fetch(`/update_graph?isShowSup=${isShowSups}&phd=${phdIds}`);
         let responseJSON = await response.json();
-        let graph = JSON.parse(responseJSON.graph);
-        let stats = JSON.parse(responseJSON.stats);
+        let graph = JSON.parse(responseJSON["graph"]);
+        let stats = JSON.parse(responseJSON["stats"]);
 
         console.log("📊 Graphique reçu, mise à jour...");
 
