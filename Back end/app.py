@@ -3,6 +3,7 @@ from flask import Flask, request, render_template, jsonify
 import pandas as pd
 from pathlib import Path
 import plotly.graph_objects as go  # ✅ Ajoute cette ligne !
+from plotly.subplots import make_subplots
 from sklearn.manifold import TSNE
 import plotly.express as px
 from datetime import datetime
@@ -302,28 +303,64 @@ def update_graph():
 
     # fig.write_image("fig1.png")
 
-    fig_stats = go.Figure()
+    fig_stats = make_subplots(rows = 2, cols = 1, subplot_titles=["Number of students per number of publications", "Numbers per discipline"]
+)
+
     # Additional statistical plots on shown students
     if phdStudents.shape[0] > 0:
-        # Number of students per number of publications
-        nb_publications, counts = np.unique(phdStudents["num_pubs_student"], return_counts=True)
+        # Number of students per number of publications, hover bubble has list of all student names
+        # dict grouped by number of publications
+        grouped_dict = phdStudents.groupby("num_pubs_student")["name_student"].apply(list).to_dict()
         fig_stats.add_trace(
-            go.Pie(
-                name="Distribution of Number of Publications",
-                values=counts,
-                labels=nb_publications,
-                marker=dict(
-                    colors=px.colors.sequential.Blues_r,
-                ),
-                hoverinfo='label+value+percent',
-                textinfo='label+percent',
-            )
+            go.Bar(
+                name="Number of students per number of publications",
+                x=list(grouped_dict.keys()),
+                y=[len(v) for v in grouped_dict.values()],
+                hoverinfo="y+text",
+                text = "students",
+                marker=dict(color="blue"),
+                legendgroup='1',
+            ),
+            row=1, col=1
+        )
+        # Number of publications per discipline
+        # dict grouped by discipline
+        grouped_dict = phdStudents.groupby("discipline_student_scopus")["num_pubs_student"].sum().to_dict()
+        fig_stats.add_trace(
+            go.Bar(
+                name="Publications",
+                x=list(grouped_dict.keys()),
+                y=list(grouped_dict.values()),
+                hoverinfo="y+text",
+                text = "publications",
+                marker=dict(color="red"),
+                legendgroup='2',
+            ),
+            row=2, col=1
+        )
+        # Number of students per discipline
+        # dict grouped by discipline
+        grouped_dict = phdStudents.groupby("discipline_student_scopus")["name_student"].apply(list).to_dict()
+        fig_stats.add_trace(
+            go.Bar(
+                name="Students",
+                x=list(grouped_dict.keys()),
+                y=[len(v) for v in grouped_dict.values()],
+                hoverinfo="y+text",
+                text = "students",
+                marker=dict(color="green"),
+                legendgroup='2',
+            ),
+            row=2, col=1
         )
     fig_stats.update_layout(
         title="Statistics",
-        xaxis_title="Number of publications",
-        yaxis_title="Number of students",
-        showlegend=True
+        xaxis1_title="Number of publications",
+        yaxis1_title="Number of students",
+        height=1000,
+        legend_tracegroupgap=500,
+        yaxis2_title = "Numbers per discipline",
+        xaxis2_title = "Disciplines"
     )
 
     return {"graph" : fig_student.to_json(),

@@ -94,13 +94,16 @@
                     <input type="checkbox" id="showSupervisors" onchange="toggleSupervisors()">
                     <span class="slider">-</span><span> Afficher les superviseurs</span>
                 </label>
-                <label class="toggle">
-                    <input type="checkbox" id="showStatistics" onchange="toggleStatistics()">
-                    <span class="slider">-</span><span> Afficher des statistiques</span>
-                </label>
             </div>
             <div id="graph"></div>
-            <div id="statistics"></div>
+            <div id="statistics">
+                <div id="disc_statistics_container">
+                    <label for="moreStatisticsButton">Plus de statistiques</label>
+                    <button id="moreStatisticsButton" onclick="toggleStatistics()">⬇️</button>
+                    <div id="disc_statistics">
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </body>

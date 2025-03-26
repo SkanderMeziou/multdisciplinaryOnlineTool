@@ -24,6 +24,7 @@ function extendFilters() {
         // Show filters
         filtersDiv.style.height = "auto";
         button.innerText = "Filtrer";
+        button.style.backgroundColor = "#00a6ed";
         button.onclick = async function() {await filter_students()};
     }
     document.getElementById("active_filters").innerHTML = "";
@@ -85,7 +86,8 @@ async function filter_students() {
     document.getElementById("active_filters").appendChild(filters_summary);
     document.getElementById("filters_extend").style.height = "0px";
     let button = document.getElementById("filter_button");
-    button.innerText = "↓";
+    button.innerText = "⬇️";
+    button.style.background = "#00a6ed";
     button.onclick = function() {extendFilters()};
     await searchThese();
 }
@@ -250,7 +252,7 @@ function updateSelectedList() {
         item.innerHTML = `
             <span>${fullName} (${nb_publications} publications)</span>
             <span>
-            <button class="profile-btn" data-name="${fullName}">👁️‍🗨️</button>
+            <button class="profile-btn" data-name="${fullName}">ℹ️</button>
             <button class="remove-btn" data-name="${fullName}"><b>✕</b></button>
             </span>
         `;
@@ -336,13 +338,13 @@ function toggleSupervisors() {
 }
 
 function toggleStatistics(){
-    if(document.getElementById("showStatistics").checked === true){
-        console.log("show statistics")
-        console.log(document.getElementById("statistics").checked)
-        document.getElementById("statistics").style.display = "block";
+    if(document.getElementById("disc_statistics").style.display === "none"){
+        console.log("show disc statistics")
+        document.getElementById("disc_statistics").style.display = "block";
     }
     else{
-        document.getElementById("statistics").style.display = "none";
+        console.log("hide disc statistics")
+        document.getElementById("disc_statistics").style.display = "none";
     }
 }
 
