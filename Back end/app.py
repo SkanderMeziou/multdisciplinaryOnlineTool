@@ -8,7 +8,6 @@ import plotly.express as px
 from datetime import datetime
 import json
 from unidecode import unidecode
-import time
 from scipy import stats
 import math
 
@@ -164,10 +163,10 @@ def search():
 @app.route("/update_graph")
 def update_graph():
     figures_wanted = [
-        "students",
+        # "students",
         "pubs",
-        "density",
-        "all"
+        # "density",
+        # "all"
     ]
     # Create a dataframe to plot
     disc_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "marker_symbol", "text_position", "nb_pubs"])
@@ -226,7 +225,7 @@ def update_graph():
     # )]
 
     # Remove students with no publications
-    # df_to_plot = df_to_plot[df_to_plot["nb_pubs"] > 0]
+    df_to_plot = df_to_plot[df_to_plot["nb_pubs"] > 0]
 
     # Sort the students by number of publications
     # df_to_plot = df_to_plot.sort_values(by=["nb_pubs"], ascending=True)
@@ -285,11 +284,14 @@ def update_graph():
             x = x_edges[:-1],
             y = y_edges[:-1],
             z = hist.T,
+            zsmooth='best',
             colorscale="Plasma",
             hovertext=df_to_plot["nb_pubs"].tolist(),
             colorbar=dict(title='Number of publications'),
             showscale=True,
-            showlegend=True
+            showlegend=True,
+            zauto = False,
+            zmax = 10
         )
         fig_pubs_heatmap = go.Figure(pubs_heatmap)
         fig_pubs_heatmap.add_trace(disc_trace)
@@ -378,9 +380,9 @@ def update_graph():
     if "students" in figures_wanted:
         fig_student.write_image(f"./results/fig{sample_size}_productivity_scatter_asc.png")
         fig_student.write_html(f"./results/fig{sample_size}_productivity_scatter_asc.html")
-    if "pubs" in figures_wanted:
-        fig_pubs_heatmap.write_image(f"./results/fig{sample_size}_productivity_heatmap.png")
-        fig_pubs_heatmap.write_html(f"./results/fig{sample_size}_productivity_heatmap.html")
+    # if "pubs" in figures_wanted:
+    #     fig_pubs_heatmap.write_image(f"./results/fig{sample_size}_productivity_heatmap.png")
+    #     fig_pubs_heatmap.write_html(f"./results/fig{sample_size}_productivity_heatmap.html")
     if "density" in figures_wanted:
         fig_density_heatmap.write_image(f"./results/fig{sample_size}_density_heatmap.png")
         fig_density_heatmap.write_html(f"./results/fig{sample_size}_density_heatmap.html")
