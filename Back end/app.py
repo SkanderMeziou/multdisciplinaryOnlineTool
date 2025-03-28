@@ -338,6 +338,21 @@ def update_graph():
             ),
             row=2, col=1
         )
+        # Mean number of publication per student per discipline
+        # dict grouped by discipline
+        grouped_dict = phdStudents.groupby("discipline_student_scopus")["num_pubs_student"].mean().to_dict()
+        fig_stats.add_trace(
+            go.Bar(
+                name="Publications moyennes",
+                x=list(grouped_dict.keys()),
+                y=list(grouped_dict.values()),
+                hoverinfo="y+text",
+                text = "publications",
+                marker=dict(color="orange"),
+                legendgroup='2',
+            ),
+            row=2, col=1
+        )
         # Number of students per discipline
         # dict grouped by discipline
         grouped_dict = phdStudents.groupby("discipline_student_scopus")["name_student"].apply(list).to_dict()
