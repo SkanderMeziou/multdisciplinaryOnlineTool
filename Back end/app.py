@@ -207,7 +207,7 @@ def update_graph():
                 list.index(disciplines, main_disc)]
         else:
             #special label
-            label = f"{student_name} ({main_disc}) has no publication"
+            label = f"{student_name} ({main_disc}) n'a pas de publications"
             #give baricenter of supervisors for coordinates
             supervisors = [student[f"name_supervisor{i}"] for i in range(1, nb_sups+1)]
             supervisors = [sup for sup in supervisors if type(sup) == str and sup != "nan" and sup != ""]
@@ -248,12 +248,12 @@ def update_graph():
                 disc_index = np.argmax(areas)
                 main_disc = disciplines[disc_index]
                 label = f"{supervisor_name} ({main_disc}) {labeled_pubs}"
-                label2 = f"supervises {student_name}"
+                label2 = f"supervise {student_name}"
                 coordinates = areas.dot(embedded)
                 df_to_plot.loc[len(df_to_plot)] = {
                     "x": coordinates[0],
                     "y": coordinates[1],
-                    "type": "supervisor",
+                    "type": "superviseur",
                     "name": supervisor_name,
                     "color": disc_colors[disc_index],
                     "size": 10,
@@ -265,7 +265,7 @@ def update_graph():
 
     # Create the figure
     phdStudents_go = go.Scatter(
-        name = "PhD Students",
+        name = "Doctorants",
         x=df_to_plot["x"].tolist(),
         y=df_to_plot["y"].tolist(),
         mode='markers+text',
@@ -296,14 +296,14 @@ def update_graph():
         fig_student.add_annotation(arrow)
 
     fig_student.update_layout(
-        title="PhD Students and Supervisors",
+        title="Doctorants et Superviseurs",
         xaxis = dict(showticklabels=False),
         yaxis = dict(showticklabels=False)
     )
 
     # fig.write_image("fig1.png")
 
-    fig_stats = make_subplots(rows = 2, cols = 1, subplot_titles=["Number of students per number of publications", "Numbers per discipline"]
+    fig_stats = make_subplots(rows = 2, cols = 1, subplot_titles=["Nombre d'étudiants par nombre de publications", "Nombres par discipline"]
 )
 
     # Additional statistical plots on shown students
@@ -313,11 +313,11 @@ def update_graph():
         grouped_dict = phdStudents.groupby("num_pubs_student")["name_student"].apply(list).to_dict()
         fig_stats.add_trace(
             go.Bar(
-                name="Number of students per number of publications",
+                name="Nombre d'étudiants par nombre de publication",
                 x=list(grouped_dict.keys()),
                 y=[len(v) for v in grouped_dict.values()],
                 hoverinfo="y+text",
-                text = "students",
+                text = "étudiants",
                 marker=dict(color="blue"),
                 legendgroup='1',
             ),
@@ -343,23 +343,23 @@ def update_graph():
         grouped_dict = phdStudents.groupby("discipline_student_scopus")["name_student"].apply(list).to_dict()
         fig_stats.add_trace(
             go.Bar(
-                name="Students",
+                name="Étudiants",
                 x=list(grouped_dict.keys()),
                 y=[len(v) for v in grouped_dict.values()],
                 hoverinfo="y+text",
-                text = "students",
+                text = "étudiants",
                 marker=dict(color="green"),
                 legendgroup='2',
             ),
             row=2, col=1
         )
     fig_stats.update_layout(
-        title="Statistics",
-        xaxis1_title="Number of publications",
-        yaxis1_title="Number of students",
+        title="Statistiques sur la population choisie",
+        xaxis1_title="Nombre de publications",
+        yaxis1_title="Nombre d'étudiants",
         height=1000,
         legend_tracegroupgap=500,
-        yaxis2_title = "Numbers per discipline",
+        yaxis2_title = "Nombres par discipline",
         xaxis2_title = "Disciplines"
     )
 
