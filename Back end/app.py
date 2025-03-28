@@ -163,6 +163,12 @@ def search():
 
 @app.route("/update_graph")
 def update_graph():
+    figures_wanted = [
+        # "students",
+        "pubs",
+        # "density",
+        # "all"
+    ]
     # Create a dataframe to plot
     disc_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "marker_symbol", "text_position", "nb_pubs"])
     # Add disciplines
@@ -183,7 +189,7 @@ def update_graph():
     ####################################################################################################################
     # Disciplines
     ####################################################################################################################
-    disc_trace = go.Scatter(
+    disc_trace = go.Scattergl(
         name="Disciplines",
         x=disc_to_plot["x"].tolist(),
         y=disc_to_plot["y"].tolist(),
@@ -223,152 +229,171 @@ def update_graph():
     df_to_plot = df_to_plot[df_to_plot["nb_pubs"] > 0]
 
     # Sort the students by number of publications
-    # phdStudents = main_df.sort_values(by=["num_pubs_student","id_scopus_student"], ascending=True)
+    # df_to_plot = df_to_plot.sort_values(by=["nb_pubs"], ascending=True)
 
-    sample_size = len(main_df)
-    # fig_student = go.Figure()
+    sample_size = len(df_to_plot)
+    print("sample_size", sample_size)
 
     ####################################################################################################################
     # Scatter plot of PhD students
     ####################################################################################################################
-    phdStudents_go = go.Scattergl(
-        name="PhD students",
-        x=df_to_plot["x"].tolist(),
-        y=df_to_plot["y"].tolist(),
-        mode='markers',
-        marker=dict(
-            color=df_to_plot["color"].tolist(),
-            size=df_to_plot["size"].tolist()
-        ),
-        opacity=1,
-        hoverinfo='text',
-        hovertext=df_to_plot["nb_pubs"].tolist(),
-    )
-    fig_student = go.Figure(phdStudents_go)
-    fig_student.add_trace(disc_trace)
-    fig_student.update_layout(
-        showlegend=True,
-        xaxis=dict(showticklabels=False),
-        yaxis=dict(showticklabels=False),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
+    if "students" in figures_wanted:
+        phdStudents_go = go.Scattergl(
+            name="PhD students",
+            x=df_to_plot["x"].tolist(),
+            y=df_to_plot["y"].tolist(),
+            mode='markers',
+            marker=dict(
+                color=[math.exp(nb) for nb in df_to_plot["nb_pubs"].tolist()],
+                colorscale='Plasma',
+                showscale=True,
+                size=df_to_plot["size"].tolist(),
+                line=dict(width=0)
+            ),
+            opacity=1,
+            hoverinfo='text',
+            hovertext=[math.exp(nb) for nb in df_to_plot["nb_pubs"].tolist()],
+            )
+        fig_student = go.Figure(phdStudents_go)
+        fig_student.add_trace(disc_trace)
+        fig_student.update_layout(
+            showlegend=True,
+            xaxis=dict(showticklabels=False),
+            yaxis=dict(showticklabels=False),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            )
         )
-    )
 
-    print("phdStudents_go done")
+        print("phdStudents_go done")
 
     ####################################################################################################################
-    # Heatmap of publications
+    # Publications heatmap
     ####################################################################################################################
-    hist, x_edges, y_edges, binnumber = stats.binned_statistic_2d(
-        df_to_plot["x"].tolist(), df_to_plot["y"].tolist(), [math.exp(nb) for nb in df_to_plot["nb_pubs"].tolist()], statistic='mean', bins=[150,100]
-    )
-    # Convert 0 values to NaN for transparency
-    hist = np.where(hist == 0, np.nan, hist)  # Set 0s to NaN
-    pubs_heatmap = go.Heatmap(
-        name="Publications heatmap",
-        x = x_edges[:-1],
-        y = y_edges[:-1],
-        z = hist.T,
-        colorscale="Plasma",
-        hovertext=df_to_plot["nb_pubs"].tolist(),
-        colorbar=dict(title='Number of publications'),
-        showscale=True,
-        showlegend=True
-    )
-    fig_pubs_heatmap = go.Figure(pubs_heatmap)
-    fig_pubs_heatmap.add_trace(disc_trace)
-    fig_pubs_heatmap.update_layout(
-        title="Publications heatmap",
-        showlegend=True,
-        xaxis=dict(showticklabels=False),
-        yaxis=dict(showticklabels=False),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
+    if "pubs" in figures_wanted:
+        hist, x_edges, y_edges, binnumber = stats.binned_statistic_2d(
+            df_to_plot["x"].tolist(), df_to_plot["y"].tolist(), [math.exp(nb) for nb in df_to_plot["nb_pubs"].tolist()], statistic='mean', bins=[150,100]
         )
-    )
+        # Convert 0 values to NaN for transparency
+        hist = np.where(hist == 0, np.nan, hist)  # Set 0s to NaN
+        pubs_heatmap = go.Heatmap(
+            name="Publications heatmap",
+            x = x_edges[:-1],
+            y = y_edges[:-1],
+            z = hist.T,
+            colorscale="Plasma",
+            hovertext=df_to_plot["nb_pubs"].tolist(),
+            colorbar=dict(title='Number of publications'),
+            showscale=True,
+            showlegend=True,
+            zauto=False,
+            zmax=10
+        )
+        fig_pubs_heatmap = go.Figure(pubs_heatmap)
+        fig_pubs_heatmap.add_trace(disc_trace)
+        fig_pubs_heatmap.update_layout(
+            title="Publications heatmap",
+            showlegend=True,
+            xaxis=dict(showticklabels=False),
+            yaxis=dict(showticklabels=False),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            )
+        )
 
-    print("pubs_heatmap done")
+        print("pubs_heatmap done")
 
     ####################################################################################################################
     # Density heatmap
     ####################################################################################################################
-    density_heatmap = go.Histogram2d(
-        x=df_to_plot["x"],
-        y=df_to_plot["y"],
-        nbinsx=150,
-        nbinsy=100,
-        colorscale=["rgba(68, 1, 84,0)"]+px.colors.sequential.Viridis,
-        colorbar=dict(title="Density"),
-        name="Density heatmap",
-        showscale=True,
-        showlegend=True,
-        histnorm="density"
-    )
-    fig_density_heatmap = go.Figure(density_heatmap)
-    fig_density_heatmap.add_trace(disc_trace)
-    fig_density_heatmap.update_layout(
-        title="Density heatmap",
-        showlegend=True,
-        xaxis=dict(showticklabels=False),
-        yaxis=dict(showticklabels=False),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        ),
-        # plot_bgcolor="rgb(0,0,0)",
-    )
+    if "density" in figures_wanted:
+        density_heatmap = go.Histogram2d(
+            x=df_to_plot["x"],
+            y=df_to_plot["y"],
+            nbinsx=150,
+            nbinsy=100,
+            colorscale=["rgba(68, 1, 84,0)"]+px.colors.sequential.Viridis,
+            colorbar=dict(title="Density"),
+            name="Density heatmap",
+            showscale=True,
+            showlegend=True,
+            histnorm="density"
+        )
+        fig_density_heatmap = go.Figure(density_heatmap)
+        fig_density_heatmap.add_trace(disc_trace)
+        fig_density_heatmap.update_layout(
+            title="Density heatmap",
+            showlegend=True,
+            xaxis=dict(showticklabels=False),
+            yaxis=dict(showticklabels=False),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            ),
+            # plot_bgcolor="rgb(0,0,0)",
+        )
 
-    print("density_heatmap done")
+        print("density_heatmap done")
 
     ####################################################################################################################
     # Full figure
     ####################################################################################################################
-    figure = go.Figure()
-    figure.add_trace(pubs_heatmap)
-    figure.add_trace(density_heatmap)
-    figure.add_trace(disc_trace)
-    figure.add_trace(phdStudents_go)
-    figure.update_layout(
-        title="Overlapping Figures",
-        showlegend=True,
-        xaxis=dict(showticklabels=False),
-        yaxis=dict(showticklabels=False),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
+    if "all" in figures_wanted:
+        figure = go.Figure()
+        if "students" in figures_wanted:
+            figure.add_trace(phdStudents_go)
+        if "pubs" in figures_wanted:
+            figure.add_trace(pubs_heatmap)
+        if "density" in figures_wanted:
+            figure.add_trace(density_heatmap)
+        figure.add_trace(disc_trace)
+        figure.update_layout(
+            title="Overlapping Figures",
+            showlegend=True,
+            xaxis=dict(showticklabels=False),
+            yaxis=dict(showticklabels=False),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            )
         )
-    )
 
-    print("figures done")
+        print("figures done")
 
-    # fig_pubs_heatmap.write_image(f"./results/fig{sample_size}_productivity_heatmap.png")
-    # fig_pubs_heatmap.write_html(f"./results/fig{sample_size}_productivity_heatmap.html")
-    # fig_density_heatmap.write_image(f"./results/fig{sample_size}_density_heatmap_test.png")
-    # fig_density_heatmap.write_html(f"./results/fig{sample_size}_density_heatmap_test.html")
-    fig_student.write_image(f"./results/fig{sample_size}.png")
-    fig_student.write_html(f"./results/fig{sample_size}.html")
-    # figure.write_image(f"./results/fig{sample_size}_all.png")
-    # figure.write_html(f"./results/fig{sample_size}_all.html")
+    ####################################################################################################################
+    # Save figures
+    ####################################################################################################################
+    if "students" in figures_wanted:
+        fig_student.write_image(f"./results/fig{sample_size}_productivity_scatter_asc.png")
+        fig_student.write_html(f"./results/fig{sample_size}_productivity_scatter_asc.html")
+    if "pubs" in figures_wanted:
+        fig_pubs_heatmap.write_image(f"./results/fig{sample_size}_productivity_heatmap_max10.png")
+        fig_pubs_heatmap.write_html(f"./results/fig{sample_size}_productivity_heatmap_max10.html")
+    if "density" in figures_wanted:
+        fig_density_heatmap.write_image(f"./results/fig{sample_size}_density_heatmap.png")
+        fig_density_heatmap.write_html(f"./results/fig{sample_size}_density_heatmap.html")
+    if "all" in figures_wanted:
+        figure.write_image(f"./results/fig{sample_size}_all.png")
+        figure.write_html(f"./results/fig{sample_size}_all.html")
 
     print("figures saved")
 
     print("sending fig_student")
-    return {"graph": fig_student.to_json()}
+    return {"graph": fig_pubs_heatmap.to_json()}
 
 
 # Charger les reports existants (ou créer un fichier vide)
