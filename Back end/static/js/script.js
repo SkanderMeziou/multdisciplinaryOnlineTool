@@ -24,6 +24,7 @@ function extendFilters() {
         // Show filters
         filtersDiv.style.height = "auto";
         button.innerText = "Filtrer";
+        button.style.backgroundColor = "#00a6ed";
         button.onclick = async function() {await filter_students()};
     }
     document.getElementById("active_filters").innerHTML = "";
@@ -85,7 +86,8 @@ async function filter_students() {
     document.getElementById("active_filters").appendChild(filters_summary);
     document.getElementById("filters_extend").style.height = "0px";
     let button = document.getElementById("filter_button");
-    button.innerText = "↓";
+    button.innerText = "⬇️";
+    button.style.background = "#00a6ed";
     button.onclick = function() {extendFilters()};
     await searchThese();
 }
@@ -226,6 +228,17 @@ function removePhD(id) {
     updateGraphWithAllPhDs().then(() => console.log("Graphique mis à jour"));
 }
 
+function profileSummaryShowHide(id){
+    const id_elt = id+'-summary'
+    let profileSummary = document.getElementById(id_elt)
+        if (profileSummary.style.display === "none"){
+            profileSummary.style.display = "block";
+        }
+        else {
+            profileSummary.style.display = "none" ;
+        }
+}
+
 function updateSelectedList() {
     const container = document.getElementById("selectedPhDs");
     container.innerHTML = "";
@@ -238,20 +251,35 @@ function updateSelectedList() {
         item.className = "selected-item";
         item.innerHTML = `
             <span>${fullName} (${nb_publications} publications)</span>
+            <span>
+            <button class="profile-btn" data-name="${fullName}">ℹ️</button>
             <button class="remove-btn" data-name="${fullName}"><b>✕</b></button>
+            </span>
         `;
-
+        const profileSummary = document.createElement("div")
+        profileSummary.className = "profile-summary"
+        profileSummary.id = `${phd["id_scopus_student"]}-summary`
+        profileSummary.style.display = "none"
+        profileSummary.innerHTML =
+            '<ul>' +
+                '<li>Nombre de publications : '+nb_publications+'</li>' +
+                '<li>Discipline principale : '+phd["discipline_student_scopus"]+'</li>' +
+            '</ul>'
         // Ajoute l'écouteur d'événement au bouton
         const removeBtn = item.querySelector('.remove-btn');
+        const profileBtn = item.querySelector('.profile-btn')
         removeBtn.addEventListener('click', function() {
             removePhD(id);
         });
+        profileBtn.addEventListener('click', function (){
+            profileSummaryShowHide(id);
+        })
 
         // Ajoute les écouteurs d'événements pour le survol
         item.addEventListener('mouseenter', () => highlightPhD(fullName));
         item.addEventListener('mouseleave', () => unhighlightPhD(fullName));
-
         container.appendChild(item);
+        container.appendChild(profileSummary)
     });
 }
 
@@ -309,6 +337,17 @@ function toggleSupervisors() {
     updateGraphWithAllPhDs().then(() => console.log("Graphique mis à jour"));
 }
 
+function toggleStatistics(){
+    if(document.getElementById("disc_statistics").style.display === "none"){
+        console.log("show disc statistics")
+        document.getElementById("disc_statistics").style.display = "block";
+    }
+    else{
+        console.log("hide disc statistics")
+        document.getElementById("disc_statistics").style.display = "none";
+    }
+}
+
 async function updateGraphWithAllPhDs() {
     if (selectedPhDs.size === 0) {
         document.getElementById("graph").innerHTML = "";
@@ -332,10 +371,17 @@ window.updateGraph = async function updateGraph(isShowSups, phdIds) {
     console.log("📡 Envoi de la requête AJAX pour le graphique...");
     try {
         let response = await fetch(`/update_graph?isShowSup=${isShowSups}&phd=${phdIds}`);
-        let graphJSON = await response.json();
+        let responseJSON = await response.json();
+        let graph = JSON.parse(responseJSON["graph"]);
+        let stats = JSON.parse(responseJSON["stats"]);
+
         console.log("📊 Graphique reçu, mise à jour...");
+
         const graphDiv = document.getElementById("graph");
-        Plotly.newPlot(graphDiv, graphJSON.data, graphJSON.layout);
+        Plotly.newPlot(graphDiv, graph.data, graph.layout);
+
+        const statsDiv = document.getElementById("statistics");
+        Plotly.newPlot(statsDiv, stats.data, stats.layout);
     } catch (error) {
         console.error("🚨 Erreur lors de la mise à jour du graphique :", error);
     }

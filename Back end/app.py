@@ -3,10 +3,12 @@ from flask import Flask, request, render_template, jsonify
 import pandas as pd
 from pathlib import Path
 import plotly.graph_objects as go  # ✅ Ajoute cette ligne !
+from plotly.subplots import make_subplots
 from sklearn.manifold import TSNE
 import plotly.express as px
 from datetime import datetime
 import json
+from unidecode import unidecode
 
 app = Flask(__name__)
 REPORTS_FILE = "reports.json"
@@ -34,7 +36,6 @@ input_dir = Path(__file__).resolve().parent.parent / "data"
 datasets = {}
 for filename in [
     "coordinates.csv",
-    # "matchings_2_supervisors.csv",
     "phd_students.h5"
 ]:
     file_path = input_dir / filename
@@ -46,6 +47,9 @@ for filename in [
                 dataset = pd.read_parquet(file_path, engine="pyarrow")
             case ".h5":
                 dataset = pd.read_hdf(file_path)
+            case _:
+                print(f"Format de fichier non pris en charge : {file_path}")
+                continue
         datasets[filename.split(".")[0]] = dataset
     else:
         print(f"Fichier manquant : {file_path}")
@@ -115,6 +119,8 @@ def filter_students():
 @app.route("/search")
 def search():
     name = request.args.get("q", "").strip().lower()
+    # Take into account french special characters
+    name = unidecode(name)
 
     columns_search_str = request.args.get("columns_search", "") # Récupère les colonnes comme une chaîne
     columns_search = columns_search_str.split(",")  # Décompose les colonnes en liste
@@ -154,7 +160,8 @@ def search():
 @app.route("/update_graph")
 def update_graph():
     # Create a dataframe to plot
-    df_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "text_position"])
+    disc_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label","marker_symbol", "text_position"])
+    df_to_plot = pd.DataFrame(columns=["x", "y", "type", "name", "color", "size", "text", "label", "marker_symbol", "text_position"])
     # Add disciplines
     for i, disc in enumerate(disciplines):
         df_to_plot.loc[len(df_to_plot)] = {
@@ -166,6 +173,7 @@ def update_graph():
             "size": 30,
             "text": disc,
             "label": disc,
+            "marker_symbol": "circle",
             "text_position": "middle center"
         }
 
@@ -199,7 +207,7 @@ def update_graph():
                 list.index(disciplines, main_disc)]
         else:
             #special label
-            label = f"{student_name} ({main_disc}) has no publication"
+            label = f"{student_name} ({main_disc}) n'a pas de publications"
             #give baricenter of supervisors for coordinates
             supervisors = [student[f"name_supervisor{i}"] for i in range(1, nb_sups+1)]
             supervisors = [sup for sup in supervisors if type(sup) == str and sup != "nan" and sup != ""]
@@ -218,6 +226,7 @@ def update_graph():
             "size": 10,
             "text": student_name,
             "label": label,
+            "marker_symbol": "triangle-up",
             "text_position": "top left"
         }
         if isShowSup :
@@ -239,33 +248,40 @@ def update_graph():
                 disc_index = np.argmax(areas)
                 main_disc = disciplines[disc_index]
                 label = f"{supervisor_name} ({main_disc}) {labeled_pubs}"
-                label2 = f"supervises {student_name}"
+                label2 = f"supervise {student_name}"
                 coordinates = areas.dot(embedded)
                 df_to_plot.loc[len(df_to_plot)] = {
                     "x": coordinates[0],
                     "y": coordinates[1],
-                    "type": "supervisor",
+                    "type": "superviseur",
                     "name": supervisor_name,
                     "color": disc_colors[disc_index],
-                    "size": 20,
+                    "size": 10,
                     "text": supervisor_name,
                     "label": label+"<br>"+label2,
+                    "marker_symbol": "square",
                     "text_position": "top right"
                 }
 
-    fig = go.Figure(go.Scatter(
+    # Create the figure
+    phdStudents_go = go.Scatter(
+        name = "Doctorants",
         x=df_to_plot["x"].tolist(),
         y=df_to_plot["y"].tolist(),
         mode='markers+text',
         marker=dict(
             color=df_to_plot["color"].tolist(),
             size=df_to_plot["size"].tolist(),
+            symbol=df_to_plot["marker_symbol"].tolist()
         ),
         text=df_to_plot["name"].tolist(),
         hoverinfo='text',
         hovertext=df_to_plot["label"].tolist(),
         textposition=df_to_plot["text_position"].tolist()
-    ))
+    )
+
+    fig_student = go.Figure()
+    fig_student.add_trace(phdStudents_go)
 
     x = df_to_plot["x"]
     y = df_to_plot["y"]
@@ -277,20 +293,93 @@ def update_graph():
             arrows.append(create_arrow(x[i], y[i], colors[i]))
 
     for arrow in arrows:
-        fig.add_annotation(arrow)
+        fig_student.add_annotation(arrow)
 
-    fig.update_layout(
-    #     title="Plot with Lines and Vectors",
-    #     xaxis_title="X Axis",
-    #     yaxis_title="Y Axis",
-    #     showlegend=False
+    fig_student.update_layout(
+        title="Doctorants et Superviseurs",
         xaxis = dict(showticklabels=False),
         yaxis = dict(showticklabels=False)
     )
 
     # fig.write_image("fig1.png")
 
-    return fig.to_json()
+    fig_stats = make_subplots(rows = 2, cols = 1, subplot_titles=["Nombre d'étudiants par nombre de publications", "Nombres par discipline"]
+)
+
+    # Additional statistical plots on shown students
+    if phdStudents.shape[0] > 0:
+        # Number of students per number of publications, hover bubble has list of all student names
+        # dict grouped by number of publications
+        grouped_dict = phdStudents.groupby("num_pubs_student")["name_student"].apply(list).to_dict()
+        fig_stats.add_trace(
+            go.Bar(
+                name="Nombre d'étudiants par nombre de publication",
+                x=list(grouped_dict.keys()),
+                y=[len(v) for v in grouped_dict.values()],
+                hoverinfo="y+text",
+                text = "étudiants",
+                marker=dict(color="blue"),
+                legendgroup='1',
+            ),
+            row=1, col=1
+        )
+        # Number of publications per discipline
+        # dict grouped by discipline
+        grouped_dict = phdStudents.groupby("discipline_student_scopus")["num_pubs_student"].sum().to_dict()
+        fig_stats.add_trace(
+            go.Bar(
+                name="Publications",
+                x=list(grouped_dict.keys()),
+                y=list(grouped_dict.values()),
+                hoverinfo="y+text",
+                text = "publications",
+                marker=dict(color="red"),
+                legendgroup='2',
+            ),
+            row=2, col=1
+        )
+        # Mean number of publication per student per discipline
+        # dict grouped by discipline
+        grouped_dict = phdStudents.groupby("discipline_student_scopus")["num_pubs_student"].mean().to_dict()
+        fig_stats.add_trace(
+            go.Bar(
+                name="Publications moyennes",
+                x=list(grouped_dict.keys()),
+                y=list(grouped_dict.values()),
+                hoverinfo="y+text",
+                text = "publications",
+                marker=dict(color="orange"),
+                legendgroup='2',
+            ),
+            row=2, col=1
+        )
+        # Number of students per discipline
+        # dict grouped by discipline
+        grouped_dict = phdStudents.groupby("discipline_student_scopus")["name_student"].apply(list).to_dict()
+        fig_stats.add_trace(
+            go.Bar(
+                name="Étudiants",
+                x=list(grouped_dict.keys()),
+                y=[len(v) for v in grouped_dict.values()],
+                hoverinfo="y+text",
+                text = "étudiants",
+                marker=dict(color="green"),
+                legendgroup='2',
+            ),
+            row=2, col=1
+        )
+    fig_stats.update_layout(
+        title="Statistiques sur la population choisie",
+        xaxis1_title="Nombre de publications",
+        yaxis1_title="Nombre d'étudiants",
+        height=1000,
+        legend_tracegroupgap=500,
+        yaxis2_title = "Nombres par discipline",
+        xaxis2_title = "Disciplines"
+    )
+
+    return {"graph" : fig_student.to_json(),
+            "stats" : fig_stats.to_json()}
 
 # Charger les reports existants (ou créer un fichier vide)
 def load_reports():
