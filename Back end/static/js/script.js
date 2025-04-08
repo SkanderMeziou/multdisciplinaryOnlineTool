@@ -5,15 +5,7 @@ let sup_filters = []
 const active_filters = {"Sups_in" : [], "Nb_pus_min" : 0, "Multidisciplinarity_min" : 0};
 
 async function filter_supervisors(discs) {
-    console.log("ca fait des trucs");
-    let url = `/filter_supervisors?discs=` + discs;
-    console.log("📡 Envoi de la requête :", url);
-    try {
-        await fetch(url, { method: "GET" }); // No need to handle response
-        console.log("Request sent successfully.");
-    } catch (error) {
-        console.error("Error sending request:", error);
-    }
+    console.log("filter supervisors", discs);
     sup_filters = discs.split(",");
 }
 
@@ -54,27 +46,8 @@ function summarize_filters() {
 async function filter_students() {
     let multidisciplinarity_value = document.getElementById("multidisciplinarity_input").value;
     let nb_pubs_value = document.getElementById("nb_pubs_input").value;
-    let url = `/filter?multidisciplinarity=`+ multidisciplinarity_value+`&nb_pubs=`+nb_pubs_value;
-
-    console.log("📡 Envoi de la requête :", url);
-    document.getElementById("filter_button").innerText = "Annuler";
-    let loader = document.createElement("div");
-        loader.className = "loader";
-        loader.innerHTML = `
-            <div></div>
-            <div></div>
-            <div></div>
-        `;
-    let filtersDiv = document.getElementById("filter_container");
-    filtersDiv.appendChild(loader);
-    try {
-        await fetch(url, { method: "GET" }); // No need to handle response
-        console.log("Request sent successfully.");
-    } catch (error) {
-        console.error("Error sending request:", error);
-    }
-    // launch search again
-    filtersDiv.removeChild(loader);
+    console.log("multidisciplinarity_value", multidisciplinarity_value);
+    console.log("nb_pubs_value", nb_pubs_value);
     active_filters["Sups_in"] = [];
     for (let nb = 0 ; nb < nb_sups ; nb++){
         if (nb < sup_filters.length) active_filters["Sups_in"].push(sup_filters[nb]);
@@ -89,7 +62,7 @@ async function filter_students() {
     button.innerText = "⬇️";
     button.style.background = "#00a6ed";
     button.onclick = function() {extendFilters()};
-    await searchThese();
+    console.log("active filters", active_filters);
 }
 
 function clearResults() {
@@ -139,7 +112,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 let debounceTimeout;
 async function searchWithQuery(query, resultsDiv) {
-    let url = `/search?q=${query}&columns_search=name_student&columns_show=name_student,discipline_student_scopus,id_scopus_student,num_pubs_student`;
+    let sup_disc_filter = active_filters.Sups_in.filter(x => x !== "Toutes");
+    let filters = {"Sups_in": sup_disc_filter, "Nb_pubs_min": active_filters.Nb_pus_min, "Multidisciplinarity_min": active_filters.Multidisciplinarity_min};
+    let url = `/search?q=${query}` +
+        `&columns_search=name_student` +
+        `&columns_show=name_student,discipline_student_scopus,id_scopus_student,num_pubs_student`+
+        `&filters=${JSON.stringify(filters)}` ;
     console.log("📡 Envoi de la requête :", url);
     resultsDiv.innerHTML="";
     let loader = document.createElement("div");

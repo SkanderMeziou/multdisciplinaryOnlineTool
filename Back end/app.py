@@ -3,6 +3,7 @@ from flask import Flask, request, render_template, jsonify
 import pandas as pd
 from pathlib import Path
 import plotly.graph_objects as go  # ✅ Ajoute cette ligne !
+from multiset import Multiset
 from plotly.subplots import make_subplots
 from sklearn.manifold import TSNE
 import plotly.express as px
@@ -79,45 +80,30 @@ def index():
     return render_template("index.html", datasets=datasets_info)
 
 def row_satisfies_conditions(values, filters_param):
+    print("checking")
     for disc_filter in values:
         if disc_filter in filters_param:
             filters_param.remove(disc_filter)
     return filters_param == [''] or filters_param == []
 
-@app.route("/filter_supervisors")
-def filter_supervisors():
-    global disc_filters
-    disc_filters = [disc for disc in request.args.get("discs").split(",")]
-    return "", 204  # No response content
-
-@app.route("/filter")
-def filter_students():
-    global main_df
-    main_df = matching_df.copy()
-
-    mask = pd.Series(True, index=main_df.index)  # Start with all True
-
-    nb_pub_filter = int(request.args.get("nb_pubs"))
-    if nb_pub_filter > 0:
-        mask &= main_df["num_pubs_student"] >= nb_pub_filter
-
-    multidisciplinary_filter = float(request.args.get("multidisciplinarity"))
-    if multidisciplinary_filter > 0:
-        mask &= main_df["distance_areas_supervisors"] >= multidisciplinary_filter
-
-    if disc_filters:
-        # List of all supervisor discipline columns
-        discipline_columns = [f"discipline_supervisor{i}_scopus" for i in range(1, nb_sups + 1)]
-        mask &= main_df.apply(lambda row: row_satisfies_conditions(row[discipline_columns].values, disc_filters.copy()),
-                             axis=1)
-
-    if not mask.all() :
-        main_df = main_df[mask]
-
-    return "", 204  # No response content
+def filter(df, filters, mask):
+    # Filter the dataframe based on the filters_param
+    if "Sups_in" in filters and len(filters["Sups_in"]) > 0:
+        # Filter by supervisors
+        print("Filtering by supervisors : ",filters["Sups_in"])
+        filter_set = Multiset(filters["Sups_in"])
+        mask &= pd.Series(df[[f"discipline_supervisor{i}_scopus" for i in range(1, nb_sups+1)]].values.tolist()).apply(Multiset).apply(lambda k: filter_set.issubset(k))
+    if nb_pubs_min:=int(filters.get("Nb_pubs_min",0)) > 0:
+        # Filter by number of publications
+        mask &= df["num_pubs_student"] >= nb_pubs_min
+    if multidisciplinarity_min:=float(filters.get("Multidisciplinarity_min",0)) > 0:
+        # Filter by multidisciplinarity
+        mask &= df["multidisciplinarity_student"] >= multidisciplinarity_min
+    return mask
 
 @app.route("/search")
 def search():
+    global main_df
     name = request.args.get("q", "").strip().lower()
     # Take into account french special characters
     name = unidecode(name)
@@ -128,7 +114,15 @@ def search():
     columns_show_str = request.args.get("columns_show", "") # Récupère les colonnes comme une chaîne
     columns_show = columns_show_str.split(",")  # Décompose les colonnes en liste
 
-    global main_df
+    filters = request.args.get("filters", "")
+    # {"Sups_in" : [], "Nb_pus_min" : 0, "Multidisciplinarity_min" : 0}
+    mask = pd.Series(True, index=main_df.index)
+    filters = json.loads(filters) if filters else {}
+    # Apply filters to the dataframe
+    if filters:
+        print("Filtering...")
+        mask = filter(main_df, filters, mask)
+    print("Filters applied:", filters)
     # if main_df is empty then tell user no user found
     if main_df.empty:
         return jsonify("")
@@ -147,8 +141,7 @@ def search():
         return jsonify({"error": "No valid show columns specified"}), 400
 
     search_space = main_df[valid_search_columns].fillna("").astype(str).agg(" ".join, axis=1)
-    mask = search_space.str.contains(name, case=False, na=False)
-
+    mask &= search_space.str.contains(name, case=False, na=False)
 
     results = main_df.loc[mask, valid_show_columns].fillna("")
     # apply title case to name
