@@ -1,6 +1,8 @@
 let selectedPhDs = new Set();
 let showSupervisors = false;
 const nb_sups = 2;
+let sup_filters = []
+const active_filters = {"Sups_in" : [], "Nb_pus_min" : 0, "Multidisciplinarity_min" : 0};
 
 async function filter_supervisors(discs) {
     console.log("ca fait des trucs");
@@ -12,13 +14,50 @@ async function filter_supervisors(discs) {
     } catch (error) {
         console.error("Error sending request:", error);
     }
+    sup_filters = discs.split(",");
+}
+
+function extendFilters() {
+    let filtersDiv = document.getElementById("filters_extend");
+    let button = document.getElementById("filter_button");
+    if (filtersDiv.style.height === "0px") {
+        // Show filters
+        filtersDiv.style.height = "auto";
+        button.innerText = "Filtrer";
+        button.style.backgroundColor = "#00a6ed";
+        button.onclick = async function() {await filter_students()};
+    }
+    document.getElementById("active_filters").innerHTML = "";
+}
+
+function summarize_filters() {
+    let summary = document.createElement("div");
+    summary.className = "filter_summary";
+    summary.textContent = "Filtres actifs :";
+    for (let disc in active_filters["Sups_in"]){
+        let sups = document.createElement("span");
+        sups.textContent = active_filters["Sups_in"][disc];
+        sups.className = "filter_badge";
+        summary.appendChild(sups);
+    }
+    let nb_pubs = document.createElement("span");
+    nb_pubs.textContent = "#pub ≥ " + active_filters["Nb_pus_min"];
+    nb_pubs.className = "filter_badge";
+    summary.appendChild(nb_pubs);
+    let multidisc = document.createElement("span");
+    multidisc.textContent = "°mult ≥ " + active_filters["Multidisciplinarity_min"];
+    multidisc.className = "filter_badge";
+    summary.appendChild(multidisc);
+    return summary;
 }
 
 async function filter_students() {
     let multidisciplinarity_value = document.getElementById("multidisciplinarity_input").value;
     let nb_pubs_value = document.getElementById("nb_pubs_input").value;
     let url = `/filter?multidisciplinarity=`+ multidisciplinarity_value+`&nb_pubs=`+nb_pubs_value;
+
     console.log("📡 Envoi de la requête :", url);
+    document.getElementById("filter_button").innerText = "Annuler";
     let loader = document.createElement("div");
         loader.className = "loader";
         loader.innerHTML = `
@@ -26,8 +65,8 @@ async function filter_students() {
             <div></div>
             <div></div>
         `;
-        let filtersDiv = document.getElementById("filter_container");
-        filtersDiv.appendChild(loader);
+    let filtersDiv = document.getElementById("filter_container");
+    filtersDiv.appendChild(loader);
     try {
         await fetch(url, { method: "GET" }); // No need to handle response
         console.log("Request sent successfully.");
@@ -36,6 +75,20 @@ async function filter_students() {
     }
     // launch search again
     filtersDiv.removeChild(loader);
+    active_filters["Sups_in"] = [];
+    for (let nb = 0 ; nb < nb_sups ; nb++){
+        if (nb < sup_filters.length) active_filters["Sups_in"].push(sup_filters[nb]);
+        else active_filters["Sups_in"].push("Toutes");
+    }
+    active_filters["Nb_pus_min"] = nb_pubs_value;
+    active_filters["Multidisciplinarity_min"] = multidisciplinarity_value;
+    let filters_summary = summarize_filters();
+    document.getElementById("active_filters").appendChild(filters_summary);
+    document.getElementById("filters_extend").style.height = "0px";
+    let button = document.getElementById("filter_button");
+    button.innerText = "⬇️";
+    button.style.background = "#00a6ed";
+    button.onclick = function() {extendFilters()};
     await searchThese();
 }
 
@@ -43,7 +96,6 @@ function clearResults() {
     document.getElementById("results").innerHTML = "";
     document.getElementById("search").value = "";
 }
-
 
 document.addEventListener('DOMContentLoaded', function() {
     let disciplines = ['AGRI', 'ARTS', 'BIOC', 'BUSI', 'CENG', 'CHEM', 'COMP', 'DECI', 'DENT', 'EART',
@@ -176,6 +228,17 @@ function removePhD(id) {
     updateGraphWithAllPhDs().then(() => console.log("Graphique mis à jour"));
 }
 
+function profileSummaryShowHide(id){
+    const id_elt = id+'-summary'
+    let profileSummary = document.getElementById(id_elt)
+        if (profileSummary.style.display === "none"){
+            profileSummary.style.display = "block";
+        }
+        else {
+            profileSummary.style.display = "none" ;
+        }
+}
+
 function updateSelectedList() {
     const container = document.getElementById("selectedPhDs");
     container.innerHTML = "";
@@ -188,20 +251,35 @@ function updateSelectedList() {
         item.className = "selected-item";
         item.innerHTML = `
             <span>${fullName} (${nb_publications} publications)</span>
+            <span>
+            <button class="profile-btn" data-name="${fullName}">ℹ️</button>
             <button class="remove-btn" data-name="${fullName}"><b>✕</b></button>
+            </span>
         `;
-
+        const profileSummary = document.createElement("div")
+        profileSummary.className = "profile-summary"
+        profileSummary.id = `${phd["id_scopus_student"]}-summary`
+        profileSummary.style.display = "none"
+        profileSummary.innerHTML =
+            '<ul>' +
+                '<li>Nombre de publications : '+nb_publications+'</li>' +
+                '<li>Discipline principale : '+phd["discipline_student_scopus"]+'</li>' +
+            '</ul>'
         // Ajoute l'écouteur d'événement au bouton
         const removeBtn = item.querySelector('.remove-btn');
+        const profileBtn = item.querySelector('.profile-btn')
         removeBtn.addEventListener('click', function() {
             removePhD(id);
         });
+        profileBtn.addEventListener('click', function (){
+            profileSummaryShowHide(id);
+        })
 
         // Ajoute les écouteurs d'événements pour le survol
         item.addEventListener('mouseenter', () => highlightPhD(fullName));
         item.addEventListener('mouseleave', () => unhighlightPhD(fullName));
-
         container.appendChild(item);
+        container.appendChild(profileSummary)
     });
 }
 
@@ -259,6 +337,17 @@ function toggleSupervisors() {
     updateGraphWithAllPhDs().then(() => console.log("Graphique mis à jour"));
 }
 
+function toggleStatistics(){
+    if(document.getElementById("disc_statistics").style.display === "none"){
+        console.log("show disc statistics")
+        document.getElementById("disc_statistics").style.display = "block";
+    }
+    else{
+        console.log("hide disc statistics")
+        document.getElementById("disc_statistics").style.display = "none";
+    }
+}
+
 async function updateGraphWithAllPhDs() {
     if (selectedPhDs.size === 0) {
         document.getElementById("graph").innerHTML = "";
@@ -282,10 +371,17 @@ window.updateGraph = async function updateGraph(isShowSups, phdIds) {
     console.log("📡 Envoi de la requête AJAX pour le graphique...");
     try {
         let response = await fetch(`/update_graph?isShowSup=${isShowSups}&phd=${phdIds}`);
-        let graphJSON = await response.json();
+        let responseJSON = await response.json();
+        let graph = JSON.parse(responseJSON["graph"]);
+        let stats = JSON.parse(responseJSON["stats"]);
+
         console.log("📊 Graphique reçu, mise à jour...");
+
         const graphDiv = document.getElementById("graph");
-        Plotly.newPlot(graphDiv, graphJSON.data, graphJSON.layout);
+        Plotly.newPlot(graphDiv, graph.data, graph.layout);
+
+        const statsDiv = document.getElementById("statistics");
+        Plotly.newPlot(statsDiv, stats.data, stats.layout);
     } catch (error) {
         console.error("🚨 Erreur lors de la mise à jour du graphique :", error);
     }
@@ -393,10 +489,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelector(".tenRandom").addEventListener("click", selectRandomPhDs);
-});
-
 async function selectRandomPhDs() {
     let resultsDiv = document.getElementById("results");
     let availablePhDs = Array.from(resultsDiv.getElementsByClassName("resultatTheses"));
@@ -406,7 +498,8 @@ async function selectRandomPhDs() {
         return selectRandomPhDs();
     }
 
-    let count = Math.min(10, availablePhDs.length);
+    let nbPhDs = document.getElementById("randomSearch").value;
+    let count = Math.min(nbPhDs, availablePhDs.length);
     let selected = getRandomElements(availablePhDs, count);
 
     let phdsToAdd = [];

@@ -13,35 +13,38 @@
         <div id="researchPart">
             <h1>🔎 Recherche de doctorants</h1>
             <div id="filter_container">
-                <div id="supervisor_disc_filter">Discipline des superviseurs : </div>
-                <div id="student_multidisciplinarity_filter">
-                    Degré de multidisciplinarité supérieur à :<br>
-                    <label for="multidisciplinarity_input"></label>
-                    <input type="number" id="multidisciplinarity_input" min="0" max="1" step="0.1" value="0.0">
-                </div>
-                <div id="nb_pubs_filter">
-                    Nombre de publications supérieur à :<br>
-                    <label for="nb_pubs_input"></label>
-                    <input type="number" id="nb_pubs_input" min="0" value="0">
+                <div id="active_filters"></div>
+                <div id="filters_extend">
+                    <div id="supervisor_disc_filter">Discipline des superviseurs : </div>
+                    <div id="student_multidisciplinarity_filter">
+                        Degré de multidisciplinarité supérieur à :<br>
+                        <label for="multidisciplinarity_input"></label>
+                        <input type="number" id="multidisciplinarity_input" min="0" max="1" step="0.1" value="0.0">
+                    </div>
+                    <div id="nb_pubs_filter">
+                        Nombre de publications supérieur à :<br>
+                        <label for="nb_pubs_input"></label>
+                        <input type="number" id="nb_pubs_input" min="0" value="0">
+                    </div>
                 </div>
                 <button id="filter_button" onclick="filter_students()">Filtrer</button>
             </div>
             <br>
             <div id="search_container">
-                <label for="search">Nom du thésard :</label>
+                <label for="randomSearch">Aléatoire :</label>
+                <input id="randomSearch" type="number" min="1" value="10">
+                <button id="randomSearch_btn" onclick="selectRandomPhDs()">🔎</button>
                 <br>
-                <input type="text" id="search" onkeyup="searchThese()" placeholder="Tapez pour rechercher...">
-                <button id="all_clear" class="remove-btn" onclick="clearResults()">✕</button>
-                <button class="tenRandom">Aléatoire (10)</button>
-                <div id="results"></div>
-                <div class="controls">
-                    <label class="toggle">
-                        <input type="checkbox" id="showSupervisors" onchange="toggleSupervisors()">
-                        <span class="slider">-</span><span> Afficher les superviseurs</span>
-                    </label>
-                    |
-                    <button id="clear" onclick="deleteAll();">Retirer tous les étudiants</button>
+                <hr>
+                <div id="search_input">
+                    <label for="search">Nom du doctorant :</label>
+                    <input type="text" id="search" onkeyup="searchThese()" placeholder="Tapez pour rechercher...">
+                    <button id="all_clear" class="remove-btn" onclick="clearResults()">✕</button>
                 </div>
+                <br>
+                <div id="results"></div>
+                <br>
+                <button id="clear" onclick="deleteAll();">Retirer tous les étudiants</button>
                 <div id="selectedPhDs" class="selected-items"></div>
             </div>
         </div>
@@ -86,7 +89,21 @@
                     </form>
                 </div>
             </div>
+            <div class="controls">
+                <label class="toggle">
+                    <input type="checkbox" id="showSupervisors" onchange="toggleSupervisors()">
+                    <span class="slider">-</span><span> Afficher les superviseurs</span>
+                </label>
+            </div>
             <div id="graph"></div>
+            <div id="statistics">
+                <div id="disc_statistics_container">
+                    <label for="moreStatisticsButton">Plus de statistiques</label>
+                    <button id="moreStatisticsButton" onclick="toggleStatistics()">⬇️</button>
+                    <div id="disc_statistics">
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </body>

@@ -84,17 +84,25 @@ body{
 }
 
 #graphPart {
-    width:60vw;
+    width:70vw;
     order: 2;
     padding: 12px;
-    overflow: scroll;
-    overflow-y: auto;
+    overflow-y: scroll;
     overflow-x: hidden;
 }
 
 #graph{
     width: 100%;
     height: 80vh;
+}
+
+#statistics{
+    width: 100%;
+    height: 80vh;
+}
+
+#disc_statistics{
+    display: none;
 }
 
 .reportButton{
@@ -135,13 +143,19 @@ body{
 .selected-item:hover {
     background-color: rgb(201, 213, 225);
 }
-.remove-btn {
+.remove-btn,.profile-btn {
     background: none;
     border: none;
     color: #ff4444;
     cursor: pointer;
     font-size: 18px;
     padding: 0 5px;
+}
+.profile-summary{
+    background-color: #b7d2f3;
+    padding: 8px 12px;
+    margin: 5px 0;
+    border-radius: 8px;
 }
 
 .toggle {
@@ -184,10 +198,6 @@ input:checked + .slider {
 
 input:checked + .slider:before {
     transform: translateX(26px);
-}
-
-.controls {
-    margin: 20px 0;
 }
 
 #selectedPhDs:empty{
@@ -344,5 +354,23 @@ input[type="number"]{
 #filter_button{
     float: right;
     font-size: large;
-    background-color: #2196F3;
+    background-color: #00a6ed;
+}
+
+#randomSearch_btn{
+    background-color: transparent;
+    font-size: larger;
+}
+
+#filters_extend{
+    overflow-y: hidden;
+}
+
+.filter_badge{
+    background-color: #5a82ad;
+    color: white;
+    border-radius: 16px;
+    padding: 6px;
+    margin: 5px;
+    font-size: small;
 }
