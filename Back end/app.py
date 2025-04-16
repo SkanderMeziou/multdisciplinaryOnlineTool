@@ -53,7 +53,22 @@ for filename in [
         datasets[filename.split(".")[0]] = dataset
     else:
         print(f"Fichier manquant : {file_path}")
-
+# Chargement des chercheurs (fichier généré en .parquet)
+researchers_file = input_dir / "researchers_publications.parquet"
+if researchers_file.exists():
+    researchers_df = pd.read_parquet(researchers_file)
+    datasets["researchers"] = researchers_df
+    print("✅ Fichier des chercheurs chargé :", researchers_df.shape)
+else:
+    print("⚠️ Fichier des chercheurs manquant :", researchers_file)
+# chargement jorunaux 
+journal_positions_file = input_dir / "umap_positions.parquet"
+if journal_positions_file.exists():
+    journal_positions_df = pd.read_parquet(journal_positions_file)
+    datasets["journal_positions"] = journal_positions_df
+    print("✅ Fichier des positions UMAP des journaux chargé :", journal_positions_df.shape)
+else:
+    print("⚠️ Fichier umap_positions.parquet manquant :", journal_positions_file)
 
 # Initialisation des variables dataset
 matching_df = pd.DataFrame(datasets["phd_students"])
@@ -417,7 +432,75 @@ def handle_report():
 
     return jsonify({"message": "Report enregistré avec succès", "report": report})
 
+@app.route("/chercheur")
+def chercheur_page():
+    researchers = datasets.get("researchers")
+    if researchers is None:
+        return "Aucune donnée sur les chercheurs chargée"
+    
+    # Liste alphabétique des auteurs
+    author_list = sorted(researchers["author_name"].unique())
+    return render_template("chercheur.html", authors=author_list)
 
+
+@app.route("/barycentre_auteur")
+def barycentre_auteur():
+    author = request.args.get("name")
+
+    # Récupération des datasets
+    researchers = datasets.get("researchers")
+    coords = datasets.get("journal_positions")
+
+    # Vérification des données nécessaires
+    if researchers is None or coords is None:
+        return jsonify({"error": "Données manquantes"}), 500
+
+    # Récupération de l’auteur
+    row = researchers[researchers["author_name"] == author]
+    if row.empty:
+        return jsonify({"error": "Auteur non trouvé"}), 404
+
+    # Extraction des journaux avec les comptes
+    journal_counts = row.iloc[0]["journals"]  # liste de dicts
+    journal_df = pd.DataFrame(journal_counts)
+
+    if journal_df.empty or "journal_id" not in journal_df.columns or "count" not in journal_df.columns:
+        return jsonify({"error": "Journaux mal formatés pour cet auteur"}), 400
+
+    # Préparer les coordonnées UMAP des journaux
+    coord_df = coords.rename(columns={"id": "journal_id", "UMAP-1": "x", "UMAP-2": "y"})
+
+    # Fusionner les journaux publiés avec les positions UMAP
+    merged = pd.merge(journal_df, coord_df, on="journal_id")
+
+    if merged.empty:
+        return jsonify({"error": "Aucune coordonnée trouvée"}), 404
+
+    # Calcul du barycentre pondéré
+    weights = merged["count"].values
+    vectors = merged[["x", "y"]].values
+    barycentre = (weights[:, None] * vectors).sum(axis=0) / weights.sum()
+
+    # Retour JSON
+    return jsonify({
+        "x": float(barycentre[0]),
+        "y": float(barycentre[1]),
+        "dominant_discipline": row.iloc[0].get("dominant_discipline", "UNKNOWN")
+    })
+
+
+@app.route("/search_researcher")
+def search_researcher():
+    query = request.args.get("q", "").strip().lower()
+    if "researchers" not in datasets:
+        return jsonify([])
+
+    df = datasets["researchers"]
+    df["search_name"] = df["author_name"].str.lower().fillna("")
+    df = df[df["search_name"].str.contains(query)]
+
+    results = df["author_name"].drop_duplicates().head(20).tolist()
+    return jsonify(results)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
