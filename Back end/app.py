@@ -8,6 +8,8 @@ from sklearn.manifold import TSNE
 import plotly.express as px
 from datetime import datetime
 import json
+import logging
+import traceback
 from unidecode import unidecode
 
 app = Flask(__name__)
@@ -62,7 +64,7 @@ if researchers_file.exists():
 else:
     print("⚠️ Fichier des chercheurs manquant :", researchers_file)
 # chargement jorunaux 
-journal_positions_file = input_dir / "umap_positions.parquet"
+journal_positions_file = input_dir / "umap_positions_with_source_id.parquet"
 if journal_positions_file.exists():
     journal_positions_df = pd.read_parquet(journal_positions_file)
     datasets["journal_positions"] = journal_positions_df
@@ -442,52 +444,90 @@ def chercheur_page():
     author_list = sorted(researchers["author_name"].unique())
     return render_template("chercheur.html", authors=author_list)
 
-
 @app.route("/barycentre_auteur")
 def barycentre_auteur():
-    author = request.args.get("name")
+    try:
+        author = request.args.get("name", "")
+        if not author:
+            return jsonify({"error": "Paramètre name requis"}), 400
 
-    # Récupération des datasets
-    researchers = datasets.get("researchers")
-    coords = datasets.get("journal_positions")
+        researchers = datasets.get("researchers")
+        coords      = datasets.get("journal_positions")
+        if researchers is None or coords is None:
+            return jsonify({"error": "Données manquantes"}), 500
 
-    # Vérification des données nécessaires
-    if researchers is None or coords is None:
-        return jsonify({"error": "Données manquantes"}), 500
+        # 1) Normalisation légère du nom d'auteur
+        norm = lambda s: unidecode(s).casefold().strip()
+        row  = researchers[researchers["author_name"].apply(norm) == norm(author)]
+        if row.empty:
+            return jsonify({"error": "Auteur non trouvé"}), 404
 
-    # Récupération de l’auteur
-    row = researchers[researchers["author_name"] == author]
-    if row.empty:
-        return jsonify({"error": "Auteur non trouvé"}), 404
+        # 2) Extraction et conversion en liste Python
+        journals_raw = row.iloc[0]["journals"]
+        if isinstance(journals_raw, np.ndarray):
+            journals_list = journals_raw.tolist()
+        elif isinstance(journals_raw, list):
+            journals_list = journals_raw
+        else:
+            journals_list = []
 
-    # Extraction des journaux avec les comptes
-    journal_counts = row.iloc[0]["journals"]  # liste de dicts
-    journal_df = pd.DataFrame(journal_counts)
+        # 3) Nettoyage et extraction du journal_id + count
+        clean = []
+        for it in journals_list:
+            if not isinstance(it, dict):
+                continue
+            sid = it.get("journal_id")
+            if not sid:
+                continue
+            try:
+                cnt = int(it.get("count", 1))
+            except (ValueError, TypeError):
+                cnt = 1
+            clean.append({"source-id": str(sid), "count": max(cnt, 1)})
 
-    if journal_df.empty or "journal_id" not in journal_df.columns or "count" not in journal_df.columns:
-        return jsonify({"error": "Journaux mal formatés pour cet auteur"}), 400
+        if not clean:
+            return jsonify({"error": "Aucun source‑id exploitable"}), 404
 
-    # Préparer les coordonnées UMAP des journaux
-    coord_df = coords.rename(columns={"id": "journal_id", "UMAP-1": "x", "UMAP-2": "y"})
+        # 4) Préparation du DataFrame UMAP des journaux, avec leur nom
+        coord_df = coords.copy()
+        # si la colonne s'appelle "id" et pas "source-id"
+        if "id" in coord_df.columns and "source-id" not in coord_df.columns:
+            coord_df = coord_df.rename(columns={"id": "source-id"})
+        coord_df["source-id"] = coord_df["source-id"].astype(str)
+        # on garde aussi le nom du journal
+        coord_df = coord_df[["source-id", "name", "UMAP-1", "UMAP-2"]]
 
-    # Fusionner les journaux publiés avec les positions UMAP
-    merged = pd.merge(journal_df, coord_df, on="journal_id")
+        # 5) Jointure pour retrouver les coordonnées de chaque journal
+        merged = pd.merge(pd.DataFrame(clean), coord_df, on="source-id")
+        if merged.empty:
+            return jsonify({"error": "Aucune coordonnée trouvée"}), 404
 
-    if merged.empty:
-        return jsonify({"error": "Aucune coordonnée trouvée"}), 404
+        # 6) Calcul du barycentre pondéré
+        w = merged["count"].to_numpy()
+        v = merged[["UMAP-1", "UMAP-2"]].to_numpy()
+        bar = (w[:, None] * v).sum(axis=0) / w.sum()
 
-    # Calcul du barycentre pondéré
-    weights = merged["count"].values
-    vectors = merged[["x", "y"]].values
-    barycentre = (weights[:, None] * vectors).sum(axis=0) / weights.sum()
+        # 7) Construire la liste des journaux à renvoyer
+        journals = []
+        for _, jr in merged.iterrows():
+            journals.append({
+                "name":  jr["name"],
+                "x":     float(jr["UMAP-1"]),
+                "y":     float(jr["UMAP-2"]),
+                "count": int(jr["count"])
+            })
 
-    # Retour JSON
-    return jsonify({
-        "x": float(barycentre[0]),
-        "y": float(barycentre[1]),
-        "dominant_discipline": row.iloc[0].get("dominant_discipline", "UNKNOWN")
-    })
+        # 8) Réponse JSON enrichie
+        return jsonify({
+            "x":                   float(bar[0]),
+            "y":                   float(bar[1]),
+            "dominant_discipline": row.iloc[0].get("dominant_discipline", "UNKNOWN"),
+            "journals":            journals
+        })
 
+    except Exception as e:
+        logging.error("Erreur barycentre_auteur : %s\n%s", e, traceback.format_exc())
+        return jsonify({"error": "Erreur serveur"}), 500
 
 @app.route("/search_researcher")
 def search_researcher():
