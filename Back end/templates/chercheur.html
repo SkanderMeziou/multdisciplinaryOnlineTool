@@ -1,137 +1,142 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-    <meta charset="utf-8">
-    <title>📍 Positionner un chercheur</title>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    <style>
-        .resultatChercheur {
-            cursor: pointer;
-            margin: 3px 0;
-            padding: 4px;
-            background-color: #eee;
-            border-radius: 4px;
-        }
-
-        .resultatChercheur:hover {
-            background-color: #ccc;
-        }
-    </style>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <meta charset="utf-8">
+  <title>📍 Positionner un chercheur</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="{{ url_for('static', filename='js/researcher.js') }}" defer></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <h1>📍 Positionner un chercheur</h1>
+  <div class="container">
+    <!-- colonne de gauche : recherche -->
+    <div id="researchPart">
+      <h1>📍 Positionner un chercheur</h1>
+      <div id="search_container">
+        <label for="search_researcher">Nom du chercheur :</label>
+        <input type="text"
+               id="search_researcher"
+               onkeyup="searchResearcher()"
+               placeholder="Tapez pour rechercher..." />
+      </div>
+      <div id="results">
+        <!-- ici les .resultatTheses générés en JS -->
+      </div>
+    </div>
 
-    <input type="text" id="search_researcher" placeholder="Rechercher un chercheur..." onkeyup="searchResearcher()" />
-    <div id="researcher_results"></div>
-    <div id="graph"></div>
+    <!-- colonne de droite : graphique -->
+    <div id="graphPart">
+      <h1>Carte interactive</h1>
+      <div id="graph"></div>
+    </div>
+  </div>
+  <script>
+    let researchersShown = [];
+        function getColor(discipline) {
+        const colors = {
+            "AGRI": "#66c2a5", "ARTS": "#fc8d62", "BIOC": "#8da0cb",
+            "BUSI": "#e78ac3", "CENG": "#a6d854", "CHEM": "#ffd92f",
+            "COMP": "#e5c494", "DECI": "#b3b3b3", "DENT": "#e41a1c",
+            "EART": "#377eb8", "ECON": "#4daf4a", "ENER": "#984ea3",
+            "ENGI": "#ff7f00", "ENVI": "#ffff33", "HEAL": "#a65628",
+            "IMMU": "#f781bf", "MATE": "#999999", "MATH": "#8dd3c7",
+            "MEDI": "#ffffb3", "MULT": "#bebada", "NEUR": "#fb8072",
+            "NURS": "#80b1d3", "PHAR": "#fdb462", "PHYS": "#b3de69",
+            "PSYC": "#fccde5", "SOCI": "#d9d9d9", "VETE": "#bc80bd",
+            "UNKNOWN": "#666666"
+        };
+        return colors[discipline] || "#000000";
+    }
 
-    <script>
-        let researchersShown = [];
-            function getColor(discipline) {
-            const colors = {
-                "AGRI": "#66c2a5", "ARTS": "#fc8d62", "BIOC": "#8da0cb",
-                "BUSI": "#e78ac3", "CENG": "#a6d854", "CHEM": "#ffd92f",
-                "COMP": "#e5c494", "DECI": "#b3b3b3", "DENT": "#e41a1c",
-                "EART": "#377eb8", "ECON": "#4daf4a", "ENER": "#984ea3",
-                "ENGI": "#ff7f00", "ENVI": "#ffff33", "HEAL": "#a65628",
-                "IMMU": "#f781bf", "MATE": "#999999", "MATH": "#8dd3c7",
-                "MEDI": "#ffffb3", "MULT": "#bebada", "NEUR": "#fb8072",
-                "NURS": "#80b1d3", "PHAR": "#fdb462", "PHYS": "#b3de69",
-                "PSYC": "#fccde5", "SOCI": "#d9d9d9", "VETE": "#bc80bd",
-                "UNKNOWN": "#666666"
-            };
-            return colors[discipline] || "#000000";
+    async function searchResearcher() {
+        let input = document.getElementById("search_researcher").value.trim();
+        if (input.length < 2) {
+            document.getElementById("results").innerHTML = "";
+            return;
         }
 
-        async function searchResearcher() {
-            let input = document.getElementById("search_researcher").value.trim();
-            if (input.length < 2) {
-                document.getElementById("researcher_results").innerHTML = "";
-                return;
-            }
+        let response = await fetch(`/search_researcher?q=${encodeURIComponent(input)}`);
+        let data = await response.json();
 
-            let response = await fetch(`/search_researcher?q=${encodeURIComponent(input)}`);
-            let data = await response.json();
+        let container = document.getElementById("results");
+        container.innerHTML = "";
 
-            let container = document.getElementById("researcher_results");
-            container.innerHTML = "";
-
-            data.forEach(name => {
-                let item = document.createElement("div");
-                item.textContent = name;
-                item.className = "resultatChercheur";
-                item.onclick = () => selectResearcher(name);
-                container.appendChild(item);
-            });
-        }
-        async function selectResearcher(name) {
-            if (researchersShown.includes(name)) return;
-
-            const response = await fetch(`/barycentre_auteur?name=${encodeURIComponent(name)}`);
-            const data = await response.json();
-            if (data.error) { alert(data.error); return; }
-
-            // === 1) Chercheur : on ajoute la discipline en hover ===
-            const researcherTrace = {
-                x: [data.x],
-                y: [data.y],
-                mode: 'markers+text',         
-                type: 'scatter',
-                name: name,
-                marker: {
-                    size: 24,                      
-                    color: getColor(data.dominant_discipline || "UNKNOWN"),
-                    symbol: 'circle',
-                    line: {                          
-                    width: 2,
-                    color: '#666666'
-                    },
-                    opacity: 1                      
-                },
-                text: [name],                    
-                textposition: 'top center',        
-                textfont: {
-                    size: 14,
-                    family: 'Arial, sans-serif'
-                },
-                hoverinfo: 'text'              
-            };
-            Plotly.addTraces("graph", researcherTrace);
-
-            // === 2) Journaux : couleur par discipline, count et auteur dans le hover ===
-            if (Array.isArray(data.journals) && data.journals.length) {
-            const journalTrace = {
-                x: data.journals.map(j => j.x),
-                y: data.journals.map(j => j.y),
-                mode: 'markers',
-                type: 'scatter',
-                name: `${name} — Journaux`,
-                marker: {
-                size: 8,
-                symbol: 'square',
-                color: data.journals.map(j => getColor(j.discipline || "UNKNOWN"))
-                },
-                hoverinfo: 'text',
-                hovertext: data.journals.map(j =>
-                `${j.name}<br>
-                ${name} : ${j.count} fois<br>
-                Discipline journal : ${j.discipline || 'UNKNOWN'}`
-                )
-            };
-            Plotly.addTraces("graph", journalTrace);
-            }
-
-            researchersShown.push(name);
-        }
-
-
-        // Initialisation vide
-        Plotly.newPlot("graph", [], {
-            title: "📍 Carte des chercheurs",
-            xaxis: { visible: false },
-            yaxis: { visible: false }
+        data.forEach(name => {
+            let item = document.createElement("div");
+            item.textContent = name;
+            item.className = "resultatTheses";
+            item.onclick = () => selectResearcher(name);
+            container.appendChild(item);
         });
-    </script>
+    }
+    async function selectResearcher(name) {
+        if (researchersShown.includes(name)) return;
+
+        const response = await fetch(`/barycentre_auteur?name=${encodeURIComponent(name)}`);
+        const data = await response.json();
+        if (data.error) { alert(data.error); return; }
+
+        // === 1) Chercheur : on ajoute la discipline en hover ===
+        const researcherTrace = {
+            x: [data.x],
+            y: [data.y],
+            mode: 'markers+text',         
+            type: 'scatter',
+            name: name,
+            marker: {
+                size: 24,                      
+                color: getColor(data.dominant_discipline || "UNKNOWN"),
+                symbol: 'circle',
+                line: {                          
+                width: 2,
+                color: '#666666'
+                },
+                opacity: 1                      
+            },
+            text: [name],                    
+            textposition: 'top center',        
+            textfont: {
+                size: 14,
+                family: 'Arial, sans-serif'
+            },
+            hoverinfo: 'text'              
+        };
+        Plotly.addTraces("graph", researcherTrace);
+
+        // === 2) Journaux : couleur par discipline, count et auteur dans le hover ===
+        if (Array.isArray(data.journals) && data.journals.length) {
+        const journalTrace = {
+            x: data.journals.map(j => j.x),
+            y: data.journals.map(j => j.y),
+            mode: 'markers',
+            type: 'scatter',
+            name: `${name} — Journaux`,
+            marker: {
+            size: 8,
+            symbol: 'square',
+            color: data.journals.map(j => getColor(j.discipline || "UNKNOWN"))
+            },
+            hoverinfo: 'text',
+            hovertext: data.journals.map(j =>
+            `${j.name}<br>
+            ${name} : ${j.count} fois<br>
+            Discipline journal : ${j.discipline || 'UNKNOWN'}`
+            )
+        };
+        Plotly.addTraces("graph", journalTrace);
+        }
+
+        researchersShown.push(name);
+    }
+
+
+    // Initialisation vide
+    Plotly.newPlot("graph", [], {
+        title: "📍 Carte des chercheurs",
+        xaxis: { visible: false },
+        yaxis: { visible: false }
+    });
+</script>
 </body>
 </html>
+
