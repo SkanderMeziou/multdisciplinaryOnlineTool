@@ -65,37 +65,32 @@
                 container.appendChild(item);
             });
         }
-
         async function selectResearcher(name) {
-        if (researchersShown.includes(name)) return;
+            if (researchersShown.includes(name)) return;
 
-        const response = await fetch(`/barycentre_auteur?name=${encodeURIComponent(name)}`);
-        const data = await response.json();
+            const response = await fetch(`/barycentre_auteur?name=${encodeURIComponent(name)}`);
+            const data = await response.json();
+            if (data.error) { alert(data.error); return; }
 
-        if (data.error) {
-            alert(data.error);
-            return;
-        }
-
-        // 1) tracer le point du chercheur
-        const researcherTrace = {
+            // === 1) Chercheur : on ajoute la discipline en hover ===
+            const researcherTrace = {
             x: [data.x],
             y: [data.y],
-            mode: 'markers+text',
+            mode: 'markers',
             type: 'scatter',
             name: name,
             marker: {
-                size: 12,
+                size: 14,
                 color: getColor(data.dominant_discipline || "UNKNOWN"),
                 symbol: 'circle'
             },
-            text: [name],
-            textposition: 'top center'
-        };
-        Plotly.addTraces("graph", researcherTrace);
+            hoverinfo: 'text',
+            hovertext: [`${name}<br>Discipline chercheur : ${data.dominant_discipline}`]
+            };
+            Plotly.addTraces("graph", researcherTrace);
 
-        // 2) tracer les journaux comme carrés
-        if (Array.isArray(data.journals) && data.journals.length) {
+            // === 2) Journaux : couleur par discipline, count et auteur dans le hover ===
+            if (Array.isArray(data.journals) && data.journals.length) {
             const journalTrace = {
                 x: data.journals.map(j => j.x),
                 y: data.journals.map(j => j.y),
@@ -103,19 +98,23 @@
                 type: 'scatter',
                 name: `${name} — Journaux`,
                 marker: {
-                    size: 8,
-                    symbol: 'square',
-                    color: '#666666'
+                size: 8,
+                symbol: 'square',
+                color: data.journals.map(j => getColor(j.discipline || "UNKNOWN"))
                 },
-                text: data.journals.map(j => j.name),
-                hovertext: data.journals.map(j => `${j.name} (${j.count})`),
-                hoverinfo: 'text'
+                hoverinfo: 'text',
+                hovertext: data.journals.map(j =>
+                `${j.name}<br>
+                ${name} : ${j.count} fois<br>
+                Discipline journal : ${j.discipline || 'UNKNOWN'}`
+                )
             };
             Plotly.addTraces("graph", journalTrace);
+            }
+
+            researchersShown.push(name);
         }
 
-        researchersShown.push(name);
-    }
 
         // Initialisation vide
         Plotly.newPlot("graph", [], {

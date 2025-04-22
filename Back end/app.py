@@ -495,7 +495,7 @@ def barycentre_auteur():
             coord_df = coord_df.rename(columns={"id": "source-id"})
         coord_df["source-id"] = coord_df["source-id"].astype(str)
         # on garde aussi le nom du journal
-        coord_df = coord_df[["source-id", "name", "UMAP-1", "UMAP-2"]]
+        coord_df = coord_df[["source-id", "name", "UMAP-1", "UMAP-2", "discipline"]]
 
         # 5) Jointure pour retrouver les coordonnées de chaque journal
         merged = pd.merge(pd.DataFrame(clean), coord_df, on="source-id")
@@ -514,7 +514,8 @@ def barycentre_auteur():
                 "name":  jr["name"],
                 "x":     float(jr["UMAP-1"]),
                 "y":     float(jr["UMAP-2"]),
-                "count": int(jr["count"])
+                "count":      int(jr["count"]),
+                "discipline": jr.get("discipline", "UNKNOWN")
             })
 
         # 8) Réponse JSON enrichie
