@@ -74,18 +74,28 @@
 
             // === 1) Chercheur : on ajoute la discipline en hover ===
             const researcherTrace = {
-            x: [data.x],
-            y: [data.y],
-            mode: 'markers',
-            type: 'scatter',
-            name: name,
-            marker: {
-                size: 14,
-                color: getColor(data.dominant_discipline || "UNKNOWN"),
-                symbol: 'circle'
-            },
-            hoverinfo: 'text',
-            hovertext: [`${name}<br>Discipline chercheur : ${data.dominant_discipline}`]
+                x: [data.x],
+                y: [data.y],
+                mode: 'markers+text',         
+                type: 'scatter',
+                name: name,
+                marker: {
+                    size: 24,                      
+                    color: getColor(data.dominant_discipline || "UNKNOWN"),
+                    symbol: 'circle',
+                    line: {                          
+                    width: 2,
+                    color: '#666666'
+                    },
+                    opacity: 1                      
+                },
+                text: [name],                    
+                textposition: 'top center',        
+                textfont: {
+                    size: 14,
+                    family: 'Arial, sans-serif'
+                },
+                hoverinfo: 'text'              
             };
             Plotly.addTraces("graph", researcherTrace);
 
