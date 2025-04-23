@@ -31,6 +31,7 @@
     </div>
   </div>
   <script>
+    let searchTimeout = null;
     let researchersShown = [];
         function getColor(discipline) {
         const colors = {
@@ -49,25 +50,50 @@
     }
 
     async function searchResearcher() {
-        let input = document.getElementById("search_researcher").value.trim();
-        if (input.length < 2) {
-            document.getElementById("results").innerHTML = "";
-            return;
-        }
+    const inputEl = document.getElementById("search_researcher");
+    const query = inputEl.value.trim();
+    const container = document.getElementById("results");
 
-        let response = await fetch(`/search_researcher?q=${encodeURIComponent(input)}`);
-        let data = await response.json();
+    // Annule la recherche en cours
+    clearTimeout(searchTimeout);
 
-        let container = document.getElementById("results");
+      // si moins de 2 caractères, on efface tout et on sort
+      if (query.length < 2) {
         container.innerHTML = "";
+        return;
+      }
 
-        data.forEach(name => {
-            let item = document.createElement("div");
+      // affiche immédiatement le loader
+      container.innerHTML = `
+        <div class="loader">
+          <div></div>
+          <div></div>
+          <div></div>
+        </div>
+      `;
+
+      // déclenche la vraie recherche après 500 ms sans nouvelle frappe
+      searchTimeout = setTimeout(async () => {
+        try {
+          const resp = await fetch(`/search_researcher?q=${encodeURIComponent(query)}`);
+          const data = await resp.json();
+
+          // nettoie loader
+          container.innerHTML = "";
+
+          // affiche les résultats
+          data.forEach(name => {
+            const item = document.createElement("div");
             item.textContent = name;
             item.className = "resultatTheses";
             item.onclick = () => selectResearcher(name);
             container.appendChild(item);
-        });
+          });
+        } catch (err) {
+          console.error("Erreur fetch :", err);
+          container.innerHTML = `<p style="color:red">Erreur de connexion</p>`;
+        }
+      }, 500);  // délai de 500 ms (ajustable)
     }
     async function selectResearcher(name) {
         if (researchersShown.includes(name)) return;
