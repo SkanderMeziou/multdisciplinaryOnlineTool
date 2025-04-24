@@ -4,165 +4,321 @@
   <meta charset="utf-8">
   <title>📍 Positionner un chercheur</title>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-  <script src="{{ url_for('static', filename='js/researcher.js') }}" defer></script>
+  <!-- on injecte la liste des auteurs pour le random pick -->
+  <script>
+    window.authors = {{ authors|tojson }};
+  </script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
   <div class="container">
-    <!-- colonne de gauche : recherche -->
+
+    <!-- colonne de gauche : recherche + filtres -->
     <div id="researchPart">
       <h1>📍 Positionner un chercheur</h1>
+
+      <!-- bouton vers la page doctorants -->
+      <a href="/"><button>🔎 Recherche de doctorants</button></a>
+
+      <!-- random pick -->
+      <div id="search_container">
+        <label for="randomSearch">Ajout aléatoire de chercheurs :</label>
+        <input id="randomSearch" type="number" min="1" value="5">
+        <button id="randomSearch_btn">🔀</button>
+      </div>
+      <hr>
+
+      <!-- champ de recherche avec debounce + loader -->
       <div id="search_container">
         <label for="search_researcher">Nom du chercheur :</label>
-        <input type="text"
-               id="search_researcher"
-               onkeyup="searchResearcher()"
+        <input type="text" id="search_researcher"
                placeholder="Tapez pour rechercher..." />
+        <button id="clear_search" class="remove-btn">✕</button>
       </div>
-      <div id="results">
-        <!-- ici les .resultatTheses générés en JS -->
-      </div>
+      <div id="results"></div>
+      <button id="clear_all">Tout supprimer</button>
+
+      <!-- liste des chercheurs sélectionnés -->
+      <div id="selectedResearchers" class="selected-items"></div>
     </div>
 
-    <!-- colonne de droite : graphique -->
+
+    <!-- colonne de droite : graphique + contrôles -->
     <div id="graphPart">
-      <h1>Carte interactive</h1>
+      <h1>Carte interactive 
+        <button class="reportButton">🚨 Signaler un problème</button>
+      </h1>
+
+      <!-- modal de report -->
+      <div id="reportModal" class="modal">
+        <div class="modal-content">
+          <span class="close">&times;</span>
+          <h2>Signaler un problème</h2>
+          <form id="reportForm">
+            <label for="name">Nom:</label>
+            <input type="text" id="name" required>
+            <label for="email">Email:</label>
+            <input type="email" id="email" required>
+            <label for="issue">Description:</label>
+            <textarea id="issue" required></textarea>
+            <button type="submit">Envoyer</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- toggle journaux -->
+      <label class="toggle">
+        <input type="checkbox" id="showJournals" checked>
+        <span class="slider"></span><span> Afficher les journaux</span>
+      </label>
+
+      <!-- le graphique principal -->
       <div id="graph"></div>
+
+      <!-- statistiques simplifiées -->
+      <div id="stats">
+        <h3>Statistiques</h3>
+        <p id="stats_count">Chercheurs sélectionnés : 0</p>
+        <ul id="stats_by_disc"></ul>
+      </div>
     </div>
   </div>
+
+
   <script>
-    let searchTimeout = null;
-    let researchersShown = [];
-        function getColor(discipline) {
-        const colors = {
-            "AGRI": "#66c2a5", "ARTS": "#fc8d62", "BIOC": "#8da0cb",
-            "BUSI": "#e78ac3", "CENG": "#a6d854", "CHEM": "#ffd92f",
-            "COMP": "#e5c494", "DECI": "#b3b3b3", "DENT": "#e41a1c",
-            "EART": "#377eb8", "ECON": "#4daf4a", "ENER": "#984ea3",
-            "ENGI": "#ff7f00", "ENVI": "#ffff33", "HEAL": "#a65628",
-            "IMMU": "#f781bf", "MATE": "#999999", "MATH": "#8dd3c7",
-            "MEDI": "#ffffb3", "MULT": "#bebada", "NEUR": "#fb8072",
-            "NURS": "#80b1d3", "PHAR": "#fdb462", "PHYS": "#b3de69",
-            "PSYC": "#fccde5", "SOCI": "#d9d9d9", "VETE": "#bc80bd",
-            "UNKNOWN": "#666666"
-        };
-        return colors[discipline] || "#000000";
+  // ================= VARIABLES GLOBALES =================
+  let searchTimeout = null;
+  const resultsDiv     = document.getElementById("results");
+  const selectedDiv    = document.getElementById("selectedResearchers");
+  const statsCountEl   = document.getElementById("stats_count");
+  const statsByDiscEl  = document.getElementById("stats_by_disc");
+  let selectedResearchers = new Set();
+  let researchersShown    = [];
+
+
+  // ================ UTILITAIRES ================
+  function getColor(d) {
+    const C = {
+    "AGRI": "rgb(102,194,165)", "ARTS": "rgb(252,141,98)", "BIOC": "rgb(141,160,203)",
+    "BUSI": "rgb(231,138,195)", "CENG": "rgb(166,216,84)", "CHEM": "rgb(255,217,47)",
+    "COMP": "rgb(229,196,148)", "DECI": "rgb(179,179,179)", "DENT": "rgb(228,26,28)",
+    "EART": "rgb(55,126,184)", "ECON": "rgb(77,175,74)", "ENER": "rgb(152,78,163)",
+    "ENGI": "rgb(255,127,0)", "ENVI": "rgb(255,255,51)", "HEAL": "rgb(166,86,40)",
+    "IMMU": "rgb(247,129,191)", "MATE": "rgb(153,153,153)", "MATH": "rgb(141,211,199)",
+    "MEDI": "rgb(255,255,179)", "MULT": "rgb(190,186,218)", "NEUR": "rgb(251,128,114)",
+    "NURS": "rgb(128,177,211)", "PHAR": "rgb(253,180,98)", "PHYS": "rgb(179,222,105)",
+    "PSYC": "rgb(252,205,229)", "SOCI": "rgb(217,217,217)", "VETE": "rgb(188,128,189)"
+    };
+    return C[d] || "#000";
+  }
+
+  function updateStats() {
+    // nombre
+    statsCountEl.textContent = 
+      `Chercheurs sélectionnés : ${selectedResearchers.size}`;
+    // répartition par discipline
+    const byDisc = {};
+    selectedResearchers.forEach(r => {
+      byDisc[r.disc] = (byDisc[r.disc]||0) + 1;
+    });
+    statsByDiscEl.innerHTML = "";
+    for (let disc in byDisc) {
+      const li = document.createElement("li");
+      li.textContent = `${disc} : ${byDisc[disc]}`;
+      statsByDiscEl.appendChild(li);
     }
+  }
 
-    async function searchResearcher() {
-    const inputEl = document.getElementById("search_researcher");
-    const query = inputEl.value.trim();
-    const container = document.getElementById("results");
 
-    // Annule la recherche en cours
-    clearTimeout(searchTimeout);
-
-      // si moins de 2 caractères, on efface tout et on sort
-      if (query.length < 2) {
-        container.innerHTML = "";
+  // ================ SEARCH + DEBOUNCE ================
+  document.getElementById("search_researcher")
+    .addEventListener("keyup", () => {
+      clearTimeout(searchTimeout);
+      const q = event.target.value.trim();
+      if (q.length < 2) {
+        resultsDiv.innerHTML = "";
         return;
       }
-
-      // affiche immédiatement le loader
-      container.innerHTML = `
+      resultsDiv.innerHTML = `
         <div class="loader">
-          <div></div>
-          <div></div>
-          <div></div>
-        </div>
-      `;
-
-      // déclenche la vraie recherche après 500 ms sans nouvelle frappe
+          <div></div><div></div><div></div>
+        </div>`;
       searchTimeout = setTimeout(async () => {
         try {
-          const resp = await fetch(`/search_researcher?q=${encodeURIComponent(query)}`);
-          const data = await resp.json();
-
-          // nettoie loader
-          container.innerHTML = "";
-
-          // affiche les résultats
+          const res = await fetch(
+            `/search_researcher?q=${encodeURIComponent(q)}`
+          );
+          const data = await res.json();
+          resultsDiv.innerHTML = "";
           data.forEach(name => {
-            const item = document.createElement("div");
-            item.textContent = name;
-            item.className = "resultatTheses";
-            item.onclick = () => selectResearcher(name);
-            container.appendChild(item);
+            const d = document.createElement("div");
+            d.textContent = name;
+            d.className = "resultatTheses";
+            d.onclick = () => selectResearcher(name);
+            resultsDiv.appendChild(d);
           });
-        } catch (err) {
-          console.error("Erreur fetch :", err);
-          container.innerHTML = `<p style="color:red">Erreur de connexion</p>`;
+        } catch {
+          resultsDiv.innerHTML = 
+            `<p style="color:red">Erreur de connexion</p>`;
         }
-      }, 500);  // délai de 500 ms (ajustable)
-    }
-    async function selectResearcher(name) {
-        if (researchersShown.includes(name)) return;
-
-        const response = await fetch(`/barycentre_auteur?name=${encodeURIComponent(name)}`);
-        const data = await response.json();
-        if (data.error) { alert(data.error); return; }
-
-        // === 1) Chercheur : on ajoute la discipline en hover ===
-        const researcherTrace = {
-            x: [data.x],
-            y: [data.y],
-            mode: 'markers+text',         
-            type: 'scatter',
-            name: name,
-            marker: {
-                size: 24,                      
-                color: getColor(data.dominant_discipline || "UNKNOWN"),
-                symbol: 'circle',
-                line: {                          
-                width: 2,
-                color: '#666666'
-                },
-                opacity: 1                      
-            },
-            text: [name],                    
-            textposition: 'top center',        
-            textfont: {
-                size: 14,
-                family: 'Arial, sans-serif'
-            },
-            hoverinfo: 'text'              
-        };
-        Plotly.addTraces("graph", researcherTrace);
-
-        // === 2) Journaux : couleur par discipline, count et auteur dans le hover ===
-        if (Array.isArray(data.journals) && data.journals.length) {
-        const journalTrace = {
-            x: data.journals.map(j => j.x),
-            y: data.journals.map(j => j.y),
-            mode: 'markers',
-            type: 'scatter',
-            name: `${name} — Journaux`,
-            marker: {
-            size: 8,
-            symbol: 'square',
-            color: data.journals.map(j => getColor(j.discipline || "UNKNOWN"))
-            },
-            hoverinfo: 'text',
-            hovertext: data.journals.map(j =>
-            `${j.name}<br>
-            ${name} : ${j.count} fois<br>
-            Discipline journal : ${j.discipline || 'UNKNOWN'}`
-            )
-        };
-        Plotly.addTraces("graph", journalTrace);
-        }
-
-        researchersShown.push(name);
-    }
-
-
-    // Initialisation vide
-    Plotly.newPlot("graph", [], {
-        title: "📍 Carte des chercheurs",
-        xaxis: { visible: false },
-        yaxis: { visible: false }
+      }, 500);
     });
-</script>
+
+  document.getElementById("clear_search")
+    .addEventListener("click", () => {
+      document.getElementById("search_researcher").value = "";
+      resultsDiv.innerHTML = "";
+    });
+
+
+  // ================ SÉLECTION / DE-SÉLECTION ================
+  async function selectResearcher(name) {
+    if (selectedResearchers.has(name)) return;
+    // appelle ton endpoint
+    const resp = await fetch(
+      `/barycentre_auteur?name=${encodeURIComponent(name)}`
+    );
+    const data = await resp.json();
+    if (data.error) {
+      return alert(data.error);
+    }
+    // trace chercheur + journaux
+    Plotly.addTraces("graph", {
+      x:[data.x], y:[data.y],
+      mode:'markers+text', type:'scatter',
+      name:name,
+      marker:{
+        size:24, color:getColor(data.dominant_discipline),
+        line:{width:2,color:'#666'}
+      },
+      text:[name], textposition:'top center'
+    });
+    if (data.journals) {
+      Plotly.addTraces("graph", {
+        x:data.journals.map(j=>j.x),
+        y:data.journals.map(j=>j.y),
+        mode:'markers', type:'scatter',
+        name:`${name} — Journaux`,
+        marker:{
+          size:8, symbol:'square',
+          color:data.journals.map(j=>getColor(j.discipline))
+        },
+        hoverinfo:'text',
+        hovertext:data.journals.map(j=>
+          `${j.name}<br>${name} : ${j.count} fois<br>`+
+          `Discipline : ${j.discipline}`
+        )
+      });
+    }
+    // mémorise
+    selectedResearchers.add(name);
+    updateSelectedList(name, data.dominant_discipline);
+    updateStats();
+  }
+
+  function updateSelectedList(name, disc) {
+    // on stocke discipline dans la Set pour stats
+    selectedResearchers.forEach(r=>{}); // juste pour l’itération
+    // reconstruit entièrement
+    selectedDiv.innerHTML = "";
+    selectedResearchers.forEach(n => {
+      const item = document.createElement("div");
+      item.className = "selected-item";
+      item.innerHTML = `
+        <span>${n}</span>
+        <button class="remove-btn" data-name="${n}">✕</button>
+      `;
+      item.querySelector(".remove-btn")
+          .onclick = () => removeResearcher(n);
+      selectedDiv.appendChild(item);
+    });
+  }
+
+  function removeResearcher(name) {
+    selectedResearchers.delete(name);
+    // on supprime toutes les traces et on redraw
+    Plotly.newPlot("graph", [], {
+      title:"📍 Carte des chercheurs",
+      xaxis:{visible:false}, yaxis:{visible:false}
+    });
+    researchersShown = [];
+    // et on re-sélectionne les restants
+    Array.from(selectedResearchers).forEach(selectResearcher);
+    updateStats();
+  }
+
+  document.getElementById("clear_all")
+    .addEventListener("click", () => {
+      selectedResearchers.clear();
+      Plotly.newPlot("graph", [], {
+        title:"📍 Carte des chercheurs",
+        xaxis:{visible:false}, yaxis:{visible:false}
+      });
+      selectedDiv.innerHTML = "";
+      statsCountEl.textContent = "Chercheurs sélectionnés : 0";
+      statsByDiscEl.innerHTML = "";
+    });
+
+
+  // ================ RANDOM PICK ================
+  document.getElementById("randomSearch_btn")
+    .addEventListener("click", () => {
+      const n = parseInt(document.getElementById("randomSearch").value,10);
+      const pool = window.authors;
+      const pick = pool
+        .sort(()=>0.5-Math.random())
+        .slice(0,n);
+      pick.forEach(selectResearcher);
+    });
+
+
+  // ================ SHOW/HIDE JOURNALS ================
+  document.getElementById("showJournals")
+    .addEventListener("change", e => {
+      const visible = e.target.checked ? true : 'legendonly';
+      // on parcourt tous les traces “Journaux”
+      const gd = document.getElementById("graph");
+      gd.data.forEach((t,i)=>{
+        if (t.name.includes("— Journaux")) {
+          Plotly.restyle(gd, {visible}, [i]);
+        }
+      });
+    });
+
+
+  // ================ INIT PLOTLY ================
+  Plotly.newPlot("graph", [], {
+    title:"📍 Carte des chercheurs",
+    xaxis:{visible:false}, yaxis:{visible:false}
+  });
+
+
+  // ================ REPORT MODAL ================
+  const modal       = document.getElementById("reportModal");
+  const btnReport   = document.querySelector(".reportButton");
+  const spanClose   = modal.querySelector(".close");
+  btnReport.onclick = ()=> modal.style.display="flex";
+  spanClose.onclick = ()=> modal.style.display="none";
+  window.onclick    = e=> { if(e.target===modal) modal.style.display="none"; };
+
+  document.getElementById("reportForm")
+    .addEventListener("submit", async e => {
+      e.preventDefault();
+      const payload = {
+        name:  e.target.name.value,
+        email: e.target.email.value,
+        issue: e.target.issue.value
+      };
+      const res = await fetch("/report", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      alert(json.message||"Envoyé !");
+      modal.style.display="none";
+      e.target.reset();
+    });
+  </script>
 </body>
 </html>
-
