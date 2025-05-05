@@ -1,0 +1,376 @@
+body{
+    font-family: Arial, Helvetica, sans-serif;
+    margin:0;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+}
+
+
+#results{
+    border-radius: 32px;
+    background-color: rgb(252, 237, 255);
+    width: 24vw;
+    max-height: 75vh;
+    padding: 12px;
+    overflow: scroll;
+}
+
+#results:empty {
+    padding: 0;
+}
+
+.resultatTheses{
+    border-radius: 100px;
+    padding: 12px;
+}
+.resultatTheses>p{
+    margin: 0px;
+}
+
+.resultatTheses:hover{
+    background-color: rgb(242, 213, 255);
+}
+.resultatTheses:active{
+    background-color: 
+    rgb(237, 163, 255);
+}
+
+.loader {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 12px;
+}
+
+.loader div {
+    width: 20px;
+    height: 20px;
+    margin: 3px;
+    background-color: #bf34db;
+    border-radius: 50%;
+    animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.loader div:nth-child(2) {
+    animation-delay: -0.32s;
+}
+.loader div:nth-child(3) {
+    animation-delay: -0.16s;
+}
+
+@keyframes bounce {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1); }
+}
+
+.container {
+    display: flex;
+    flex-direction: row; 
+    width: 100vw; 
+    height: 100vh;
+    margin-top: 0;
+}
+
+
+#researchPart{
+    order: 1; 
+    width:30vw;
+    padding: 12px;
+    background-color: rgb(248, 213, 255);
+    overflow: scroll;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#graphPart {
+    width:70vw;
+    order: 2;
+    padding: 12px;
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
+
+#graph{
+    width: 100%;
+    height: 80vh;
+}
+
+#statistics{
+    width: 100%;
+    height: 80vh;
+}
+
+#disc_statistics{
+    display: none;
+}
+
+.reportButton{
+    border-radius: 100px;
+    border: none;
+    font-size: 26px;
+    padding: 6px;
+    padding-left: 16px;
+    padding-right: 16px;
+    transition: transform 0.1s ease-in-out, background-color 0.1s ease-in-out;
+    float: right;
+}
+.reportButton:hover{
+    background-color:rgb(255, 100, 100);
+    transform: scale(1.1);
+}
+.reportButton:active{
+    background-color:rgb(255, 48, 48);
+    transform: scale(1.1);
+}
+.selected-items {
+    margin-top: 20px;
+    padding: 10px;
+    background-color: rgb(253, 241, 241);
+    border-radius: 16px;
+}
+
+.selected-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: white;
+    padding: 8px 12px;
+    margin: 5px 0;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.selected-item:hover {
+    background-color: rgb(221, 201, 225);
+}
+.remove-btn,.profile-btn {
+    background: none;
+    border: none;
+    color: #ff4444;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0 5px;
+}
+.profile-summary{
+    background-color: #e8b7f3;
+    padding: 8px 12px;
+    margin: 5px 0;
+    border-radius: 8px;
+}
+
+.toggle {
+    position: relative;
+    display: inline-block;
+    margin: 10px 0;
+}
+
+.toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 16px 8px 40px;
+    background-color: #ccc;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: 0.4s;
+}
+
+.slider:before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    width: 26px;
+    height: 26px;
+    background-color: white;
+    border-radius: 50%;
+    transition: 0.4s;
+}
+
+input:checked + .slider {
+    background-color: #d021f3;
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+#selectedPhDs:empty{
+    padding:0;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: rgb(0,0,0);
+    background-color: rgba(0,0,0,0.4);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: #fefefe;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 500px;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+form label {
+    display: block;
+    margin-top: 10px;
+}
+
+form input, form textarea {
+    width: 95%;
+    padding: 10px;
+    margin-top: 5px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 1em;
+    margin-right: 100px;
+}
+
+form textarea{
+    resize: none;
+    overflow: auto;
+    height: 6em;
+}
+
+form button {
+    padding: 10px 20px;
+    background-color: #35d13a;
+    color: white;
+    border: none;
+    border-radius: 80px;
+    cursor: pointer;
+}
+
+form button:hover {
+    background-color: #7df483;
+}
+
+#category {
+    padding: 10px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    cursor: pointer;
+}
+
+#filter_container{
+    font-size: large;
+    margin-bottom: 20px;
+}
+
+#filter_container,#search_container{
+    background-color: rgb(253, 237, 255);
+    padding: 10px;
+    border-radius: 10px;
+    border-color: #5a0d63;
+    border-width: medium;
+}
+
+#supervisor_disc_filter {
+    display: inline;
+}
+
+#supervisor_disc_filter select, #multidisciplinarity_input{
+    border-radius: 16px;
+    margin: 5px;
+    border:none;
+    padding: 6px;
+}
+
+#supervisor_disc_filter select{
+    background-color: rgb(154, 90, 173);
+    color: #ffffff;
+}
+
+#supervisor_disc_filter select:hover{
+    background-color: rgb(149, 68, 150);
+}
+
+button {
+    border-radius: 10px;
+    margin: 5px;
+    border: none;
+    cursor: pointer;
+    background-color: rgb(173, 90, 169);
+    color: #ffffff;
+    padding: 6px;
+}
+
+button:hover{
+    background-color: rgb(123, 77, 135);
+}
+
+button:active{
+    background-color: rgb(126, 69, 124);
+}
+
+#search{
+    border:none;
+    border-radius: 20px;
+    padding : 6px;
+}
+
+.supervisor_name_input, .publication_title{
+    display: none;
+}
+
+input[type="number"]{
+    border-radius: 16px;
+    padding: 6px;
+    border: none;
+    margin: 5px;
+}
+
+#filter_button{
+    float: right;
+    font-size: large;
+    background-color: #ed00e5;
+}
+
+#randomSearch_btn{
+    background-color: transparent;
+    font-size: larger;
+}
+
+#filters_extend{
+    overflow-y: hidden;
+}
+
+.filter_badge{
+    background-color: #ac5aad;
+    color: white;
+    border-radius: 16px;
+    padding: 6px;
+    margin: 5px;
+    font-size: small;
+}
