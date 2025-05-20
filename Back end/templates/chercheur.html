@@ -83,6 +83,17 @@
       </div>
     </div>
   </div>
+  <!-- Modal qui s’ouvre quand on clique sur un chercheur -->
+<div id="infoModal" class="modal">
+  <div class="modal-content">
+    <span id="infoClose" class="close">&times;</span>
+    <h2 id="infoName">Nom du chercheur</h2>
+    <p><strong>Discipline :</strong> <span id="infoDiscipline"></span></p>
+    <h3>Top 10 Journaux</h3>
+    <ul id="infoJournals"></ul>
+    <!-- tu peux ajouter d’autres champs ici si tu veux -->
+  </div>
+</div>
 
 
   <script>
@@ -221,24 +232,107 @@
 }
     // mémorise
     selectedResearchers.add(name);
-    updateSelectedList(name, data.dominant_discipline);
+    updateSelectedList();
     updateStats();
   }
 
-  function updateSelectedList(name, disc) {
-    // on stocke discipline dans la Set pour stats
-    selectedResearchers.forEach(r=>{}); // juste pour l’itération
-    // reconstruit entièrement
+  function updateSelectedList() {
+    // Vider puis reconstruire la liste
     selectedDiv.innerHTML = "";
-    selectedResearchers.forEach(n => {
+    selectedResearchers.forEach(name => {
       const item = document.createElement("div");
       item.className = "selected-item";
       item.innerHTML = `
-        <span>${n}</span>
-        <button class="remove-btn" data-name="${n}">✕</button>
+        <span class="sel-name">${name}</span>
+        <button class="remove-btn" data-name="${name}">✕</button>
+        <input type="number" class="k-input" min="1" value="5" title="Nombre de voisins" />
+        <button class="closer-btn">Proches</button>
+        <button class="closer-j-btn">Proche-J</button>
       `;
-      item.querySelector(".remove-btn")
-          .onclick = () => removeResearcher(n);
+
+      // Suppression du chercheur
+      item.querySelector(".remove-btn").onclick = () => {
+        removeResearcher(name);
+      };
+
+      // Afficher les k plus proches de ce chercheur
+      item.querySelector(".closer-btn").onclick = async () => {
+        const k = parseInt(item.querySelector(".k-input").value, 10) || 5;
+        try {
+          const resp = await fetch(
+            `/closer_researchers?name=${encodeURIComponent(name)}&k=${k}`
+          );
+          const list = await resp.json();
+          if (list.error) return alert(list.error);
+
+          // Pour chaque voisin, on trace un point
+          list.forEach(r => {
+            Plotly.addTraces("graph", {
+              x: [r.x],
+              y: [r.y],
+              mode: "markers+text",
+              type: "scatter",
+              name: `${name} → ${r.name}`,
+              marker: {
+                size: 12,
+                color: "#444",
+                symbol: "diamond",
+                line: { width: 1, color: "#222" }
+              },
+              text: [r.name],
+              textposition: "bottom center"
+            });
+          });
+
+        } catch (err) {
+          console.error(err);
+          alert("Impossible de récupérer les proches.");
+        }
+      };
+
+      item.querySelector(".closer-j-btn").onclick = async () => {
+        const k = parseInt(item.querySelector(".k-input").value, 10) || 5;
+        try {
+          const resp = await fetch(
+            `/closer_researchers_jaccard?name=${encodeURIComponent(name)}&k=${k}`
+          );
+          const list = await resp.json();
+          if (list.error) return alert(list.error);
+
+          // Ajoute les points sur le graphe
+          list.forEach(r => {
+            if (r.x !== null && r.y !== null) {
+              Plotly.addTraces("graph", {
+                x: [r.x],
+                y: [r.y],
+                mode: "markers+text",
+                type: "scatter",
+                name: `${name} ~Jaccard~> ${r.name}`,
+                marker: {
+                  size: 12,
+                  color: "#ad3f82", // Couleur différente si tu veux
+                  symbol: "diamond",
+                  line: { width: 1, color: "#222" }
+                },
+                text: [r.name],
+                textposition: "bottom center"
+              });
+            }
+          });
+
+          // Optionnel : affiche une alerte avec la liste comme avant
+          let txt = "Plus proches selon Jaccard (similaire publications) :\n";
+          list.forEach(r => {
+            txt += `${r.name} (score = ${r.similarity.toFixed(3)})\n`;
+          });
+          alert(txt);
+
+        } catch (err) {
+          console.error(err);
+          alert("Impossible de récupérer les proches-J.");
+        }
+      };
+
       selectedDiv.appendChild(item);
     });
   }
@@ -328,6 +422,61 @@
       modal.style.display="none";
       e.target.reset();
     });
+    // Récupère les éléments du DOM
+const infoModal       = document.getElementById('infoModal');
+const infoCloseButton = document.getElementById('infoClose');
+const infoNameEl      = document.getElementById('infoName');
+const infoDiscEl      = document.getElementById('infoDiscipline');
+const infoJournalsEl  = document.getElementById('infoJournals');
+
+// Fermer le modal quand on clique sur la croix
+infoCloseButton.onclick = () => {
+  infoModal.style.display = 'none';
+};
+// Fermer le modal si on clique en-dehors
+window.onclick = e => {
+  if (e.target === infoModal) {
+    infoModal.style.display = 'none';
+  }
+};
+
+// Écouteur de clic sur le graphe Plotly
+const graphDiv = document.getElementById('graph');
+graphDiv.on('plotly_click', async eventData => {
+  const pt = eventData.points[0];
+  // On récupère le nom depuis le texte du point (plus fiable que .name)
+  const author = pt.data.text ? pt.data.text[pt.pointIndex] : pt.data.name;
+  
+  if (!author || author.includes("— Journaux")) return;
+  if (pt.data.marker && pt.data.marker.symbol === "square") return;
+
+  // Récupère les infos du chercheur
+  const resp = await fetch(
+    `/barycentre_auteur?name=${encodeURIComponent(author)}`
+  );
+  const data = await resp.json();
+  if (data.error) {
+    return alert(data.error);
+  }
+
+  // Remplit le modal
+  infoNameEl.textContent = data.author_name || author;
+  infoDiscEl.textContent = data.dominant_discipline || 'Inconnue';
+  const top10 = (data.journals||[])
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  infoJournalsEl.innerHTML = '';
+  top10.forEach(j => {
+    const li = document.createElement('li');
+    li.textContent = `${j.name || j.journal_id} : ${j.count} publications`;
+    infoJournalsEl.appendChild(li);
+  });
+
+  // Affiche le modal
+  infoModal.style.display = 'block';
+});
+
   </script>
 </body>
 </html>

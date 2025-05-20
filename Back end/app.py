@@ -11,6 +11,8 @@ import json
 import logging
 import traceback
 from unidecode import unidecode
+import os
+from multiprocessing import Pool
 
 app = Flask(__name__)
 REPORTS_FILE = "reports.json"
@@ -26,7 +28,68 @@ def create_arrow(coord_x, coord_y, color):
         showarrow=True, arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor=color
     )
 
+def get_weights(author_name):
+    """
+    Pour un chercheur, retourne :
+      - ids : liste d'ISSN valides
+      - w   : vecteur numpy des poids normalisés
+    """
+    row = df_pubs[df_pubs['author_name'] == author_name]
+    if row.empty:
+        raise KeyError(f"Auteur '{author_name}' non trouvé dans researchers_publications")
+    journals = row.iloc[0]['journals']
+    pairs = []
+    for j in journals:
+        sid  = str(j.get('journal_id'))
+        cnt  = j.get('count', 1) or 1
+        issn = mapping_src2issn.get(sid)
+        if issn and issn in df_jaccard.index:
+            pairs.append((issn, int(cnt)))
+    if not pairs:
+        raise ValueError(f"Aucun journal mappé pour '{author_name}'")
+    ids, counts = zip(*pairs)
+    w = np.array(counts, dtype=float)
+    w /= w.sum()
+    return list(ids), w
+nombre = 0
+def barycenter_distance(ids1, w1, ids2, w2):
+    """
+    Calcule la distance euclidienne entre deux barycentres pondérés
+    définis par (ids1, w1) et (ids2, w2).
+    """
+    # liste unique d'ISSN
+    combined = []
+    for x in ids1 + ids2:
+        if x not in combined:
+            combined.append(x)
+    M  = df_jaccard.loc[combined, combined].values.astype(float)
+    D2 = M**2
+    a_idx = [combined.index(i) for i in ids1]
+    b_idx = [combined.index(i) for i in ids2]
+    # sous-blocs
+    D2_ab = D2[np.ix_(a_idx, b_idx)]
+    D2_aa = D2[np.ix_(a_idx, a_idx)]
+    D2_bb = D2[np.ix_(b_idx, b_idx)]
+    # calcul bilinéaire
+    t_ab = w1 @ D2_ab @ w2
+    t_aa = w1 @ D2_aa @ w1
+    t_bb = w2 @ D2_bb @ w2
+    d2   = t_ab - 0.5*t_aa - 0.5*t_bb
+    print("distance n°",nombre,":",float(np.sqrt(max(d2, 0.0))))
+    return float(np.sqrt(max(d2, 0.0)))
 
+def _distance_worker(args):
+    """
+    args = (ids0, w0, other_author_name)
+    Retourne (other_author_name, distance) ou None si erreur
+    """
+    ids0, w0, other = args
+    try:
+        ids1, w1 = get_weights(other)
+        d = barycenter_distance(ids0, w0, ids1, w1)
+        return (other, d)
+    except Exception:
+        return None
 #-----------------------------------------------------------------------------------------------------------------------------
 #-----------------------------------------------application et routes---------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -72,6 +135,15 @@ if journal_positions_file.exists():
 else:
     print("⚠️ Fichier umap_positions.parquet manquant :", journal_positions_file)
 
+# chargement chercheurs position  
+searchers_positions_file = input_dir / "researchers_barycentres.parquet"
+if searchers_positions_file.exists():
+    searchers_positions_df = pd.read_parquet(searchers_positions_file)
+    datasets["searchers_positions"] = searchers_positions_df
+    print("✅ Fichier des positions UMAP des journaux chargé :", searchers_positions_df.shape)
+else:
+    print("⚠️ Fichier umap_positions.parquet manquant :", searchers_positions_file)
+
 # Initialisation des variables dataset
 matching_df = pd.DataFrame(datasets["phd_students"])
 coordinates_df = datasets["coordinates"]
@@ -87,7 +159,27 @@ nb_sups = 2
 n = len(disciplines)
 disc_colors = (px.colors.qualitative.Set2 + px.colors.qualitative.Set1 + px.colors.qualitative.Set3)[:n]
 embedded = TSNE(n_components=2, learning_rate='auto', random_state=42, perplexity=5).fit_transform(matrix_coord)
+jaccard_file = input_dir / "jaccard_overall.parquet"
+if jaccard_file.exists():
+    df_j = pd.read_parquet(jaccard_file)
+    # indexation sur ISSN/EISSN
+    if 'issn' in df_j.columns:
+        df_j.set_index('issn', inplace=True)
+    elif 'index' in df_j.columns:
+        df_j.set_index('index', inplace=True)
+    df_j.index = df_j.index.astype(str)
+    df_j.columns = df_j.columns.astype(str)
+    datasets["jaccard"] = df_j
+else:
+    raise FileNotFoundError(f"{jaccard_file} introuvable")
 
+# Récupération rapide
+df_jaccard    = datasets["jaccard"]
+df_pubs       = datasets["researchers"]
+df_umap       = datasets["journal_positions"]
+
+# mapping source-id → ISSN/EISSN
+mapping_src2issn = df_umap.set_index('source-id')['id'].astype(str).to_dict()
 print("Datasets chargés avec succès :", list(datasets.keys()))
 
 @app.route("/")
@@ -541,6 +633,179 @@ def search_researcher():
     df = df[df["search_name"].str.contains(query)]
 
     results = df["author_name"].drop_duplicates().head(20).tolist()
+    return jsonify(results)
+
+@app.route("/closer_researchers")
+def get_closer_researchers():
+    # 1) Récupérer et valider les paramètres
+    name = request.args.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "Paramètre 'name' requis"}), 400
+
+    try:
+        k = int(request.args.get("k", 5))
+    except ValueError:
+        return jsonify({"error": "Le paramètre 'k' doit être un entier"}), 400
+
+    # 2) On récupère le DataFrame des positions UMAP des chercheurs
+    df_searchers = datasets.get("searchers_positions")
+    if df_searchers is None:
+        return jsonify({"error": "Données chercheurs manquantes"}), 500
+
+    # 3) Normalisation simple pour la recherche de nom
+    norm = unidecode(name).casefold().strip()
+    if "norm_name" not in df_searchers.columns:
+        df_searchers["norm_name"] = (
+            df_searchers["author_name"]
+            .fillna("")
+            .map(lambda s: unidecode(s).casefold().strip())
+        )
+
+    # 4) On trouve la ligne du chercheur cible
+    mask = df_searchers["norm_name"] == norm
+    if not mask.any():
+        return jsonify({"error": f"Chercheur '{name}' non trouvé"}), 404
+
+    target = df_searchers[mask].iloc[0]
+    x0, y0 = target["x"], target["y"]
+
+    # 5) Calcul des distances euclidiennes à tous les autres
+    others = df_searchers.loc[df_searchers.index != target.name].copy()
+    others["distance"] = np.hypot(others["x"] - x0, others["y"] - y0)
+
+    # 6) Sélection des k plus proches
+    nearest = others.nsmallest(k, "distance")
+
+    # 7) Préparation de la réponse
+    result = (
+        nearest[["author_name", "x", "y", "distance"]]
+        .rename(columns={"author_name": "name"})
+        .to_dict(orient="records")
+    )
+    return jsonify(result)
+
+@app.route("/researcher_info")
+def researcher_info():
+    name = request.args.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "Paramètre name requis"}), 400
+
+    # on cherche dans ton DataFrame researchers_df
+    row = researchers_df[researchers_df["author_name"] == name]
+    if row.empty:
+        return jsonify({"error": "Chercheur non trouvé"}), 404
+
+    row = row.iloc[0]
+    # extrait les journaux et trie par count décroissant
+    pubs = sorted(row["journals"], key=lambda j: j["count"], reverse=True)[:10]
+    top10 = [
+        {"journal_id": j["journal_id"], "count": j["count"]}
+        for j in pubs
+    ]
+
+    return jsonify({
+        "author_name": name,
+        "dominant_discipline": row.get("dominant_discipline","UNKNOWN"),
+        "top10_journals": top10,
+        # tu peux ajouter d'autres champs ici…
+    })
+
+@app.route("/closer_researchers_jaccard")
+def get_closer_researchers_jaccard():
+    import time
+    t0 = time.time()
+    name = request.args.get("name", "").strip()
+    print("[JACCARD] 0. Début endpoint")
+    if not name:
+        return jsonify({"error": "Paramètre 'name' requis"}), 400
+
+    try:
+        k = int(request.args.get("k", 5))
+    except ValueError:
+        return jsonify({"error": "Le paramètre 'k' doit être un entier"}), 400
+
+    df_journals = datasets.get("researchers")
+    df_positions = datasets.get("searchers_positions")
+    print(f"[JACCARD] 1. Récupéré les datasets en {time.time() - t0:.3f}s")
+    if df_journals is None or df_positions is None:
+        return jsonify({"error": "Données chercheurs manquantes"}), 500
+
+    norm = unidecode(name).casefold().strip()
+    for df in (df_journals, df_positions):
+        if "norm_name" not in df.columns:
+            df["norm_name"] = (
+                df["author_name"]
+                .fillna("")
+                .map(lambda s: unidecode(s).casefold().strip())
+            )
+    print(f"[JACCARD] 2. Normalisation faite en {time.time() - t0:.3f}s")
+
+    row_journals = df_journals[df_journals["norm_name"] == norm]
+    row_position = df_positions[df_positions["norm_name"] == norm]
+    if row_journals.empty or row_position.empty:
+        print("[JACCARD] 3. Chercheur non trouvé")
+        return jsonify({"error": f"Chercheur '{name}' non trouvé"}), 404
+    row_journals = row_journals.iloc[0]
+    row_position = row_position.iloc[0]
+    x0, y0 = row_position["x"], row_position["y"]
+    print(f"[JACCARD] 3. Récupéré chercheur cible en {time.time() - t0:.3f}s")
+
+    positions_others = df_positions.loc[df_positions["norm_name"] != norm].copy()
+    positions_others["distance"] = np.hypot(positions_others["x"] - x0, positions_others["y"] - y0)
+    print(f"[JACCARD] 4. Distances UMAP calculées en {time.time() - t0:.3f}s")
+
+    close_names = set(positions_others[positions_others["distance"] <= 0.5]["norm_name"])
+    print(f"[JACCARD] 5. Gardé {len(close_names)} voisins à <0.5 en {time.time() - t0:.3f}s")
+
+    filtered_journals = df_journals[df_journals["norm_name"].isin(close_names)]
+    print(f"[JACCARD] 6. Filtrage DF : {filtered_journals.shape[0]} chercheurs proches")
+
+    def get_journal_vector(row):
+        v = {}
+        for j in row["journals"]:
+            v[j["journal_id"]] = v.get(j["journal_id"], 0) + j["count"]
+        return v
+
+    v0 = get_journal_vector(row_journals)
+    print(f"[JACCARD] 7. Vecteur du chercheur cible prêt en {time.time() - t0:.3f}s")
+    results = []
+
+    def jaccard_weighted(v1, v2):
+        keys = set(v1) | set(v2)
+        min_sum = sum(min(v1.get(k, 0), v2.get(k, 0)) for k in keys)
+        max_sum = sum(max(v1.get(k, 0), v2.get(k, 0)) for k in keys)
+        if max_sum == 0:
+            return 0.0
+        return min_sum / max_sum
+
+        # On prépare un dict rapide pour retrouver les positions UMAP (accès instantané)
+    positions_dict = {
+        row["norm_name"]: (row["x"], row["y"])
+        for _, row in df_positions.iterrows()
+    }
+
+    t_loop = time.time()
+    print(f"[JACCARD]", end="")
+    numberI = 0
+    for idx, row in filtered_journals.iterrows():
+        numberI += 1
+        if numberI % 1000 == 0:
+            print(numberI, " ", end="")
+
+        v = get_journal_vector(row)
+        score = jaccard_weighted(v0, v)
+        x, y = positions_dict.get(row["norm_name"], (None, None))
+        results.append({
+            "name": row["author_name"],
+            "similarity": score,
+            "x": x,
+            "y": y,
+        })
+    print("fin")
+    print(f"[JACCARD] 8. Boucle des similarités Jaccard sur {filtered_journals.shape[0]} chercheurs en {time.time() - t_loop:.3f}s")
+
+    results = sorted(results, key=lambda r: -r["similarity"])[:k]
+    print(f"[JACCARD] 9. Tri et retour final en {time.time() - t0:.3f}s")
     return jsonify(results)
 
 if __name__ == "__main__":
