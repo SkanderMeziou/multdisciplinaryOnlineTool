@@ -334,7 +334,7 @@ def update_graph():
                 hoverinfo="y+text",
                 text = "publications",
                 marker=dict(color="red"),
-                legendgroup='2',
+                legendgroup='2'
             ),
             row=2, col=1
         )
@@ -349,7 +349,7 @@ def update_graph():
                 hoverinfo="y+text",
                 text = "étudiants",
                 marker=dict(color="green"),
-                legendgroup='2',
+                legendgroup='2'
             ),
             row=2, col=1
         )
@@ -360,7 +360,7 @@ def update_graph():
         height=1000,
         legend_tracegroupgap=500,
         yaxis2_title = "Nombres par discipline",
-        xaxis2_title = "Disciplines"
+        xaxis2_title = "Disciplines",
     )
 
     return {"graph" : fig_student.to_json(),
