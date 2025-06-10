@@ -92,7 +92,7 @@ def _distance_worker(args):
     except Exception:
         return None
 #-----------------------------------------------------------------------------------------------------------------------------
-#-----------------------------------------------application et routes---------------------------------------------------------
+#-----------------------------------------------chargement des donées---------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------------------------------
 
 # Définition du chemin des fichiers de manière robuste
@@ -205,6 +205,27 @@ load_faiss_index()
 # mapping source-id → ISSN/EISSN
 mapping_src2issn = df_umap.set_index('source-id')['id'].astype(str).to_dict()
 print("Datasets chargés avec succès :", list(datasets.keys()))
+
+# --- Mapping source-id -> issn
+journal_mapping_file = input_dir / "journal_mapping.parquet"
+if journal_mapping_file.exists():
+    journal_mapping_df = pd.read_parquet(journal_mapping_file)
+    sourceid_to_issn = dict(zip(journal_mapping_df['source-id'].astype(str), journal_mapping_df['issn'].astype(str)))
+else:
+    sourceid_to_issn = {}
+
+# --- Embeddings de journaux
+journals_emb_file = input_dir / "journalsEmb.parquet"
+if journals_emb_file.exists():
+    journals_df = pd.read_parquet(journals_emb_file)
+    journal_embs = journals_df.set_index('ID').dropna().astype(float)
+    journal_embs.index = journal_embs.index.astype(str)
+else:
+    journal_embs = pd.DataFrame()
+
+#-----------------------------------------------------------------------------------------------------------------------------
+#-----------------------------------------------application et routes---------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------------
 
 @app.route("/")
 def index():
@@ -631,7 +652,8 @@ def barycentre_auteur():
                 "x":     float(jr["UMAP-1"]),
                 "y":     float(jr["UMAP-2"]),
                 "count":      int(jr["count"]),
-                "discipline": jr.get("discipline", "UNKNOWN")
+                "discipline": jr.get("discipline", "UNKNOWN"),
+                "source_id":  jr["source-id"] 
             })
 
         # 8) Réponse JSON enrichie
@@ -881,6 +903,43 @@ def closer_researchers_faiss():
 
     return jsonify(results)
 
+@app.route("/journal_stats")
+def journal_stats():
+    # params: journal_id (source-id), authors=[list json]
+    journal_id = request.args.get("journal_id", "")
+    authors = request.args.get("authors", "[]")
+    try:
+        authors = json.loads(authors)
+    except Exception:
+        return jsonify({"error": "Invalid authors param"}), 400
+    stats = []
+    for a in authors:
+        row = researchers_df[researchers_df["author_name"] == a]
+        count = 0
+        if not row.empty:
+            for j in row.iloc[0]["journals"]:
+                if str(j["journal_id"]) == str(journal_id):
+                    count += j.get("count", 1)
+        stats.append({"author": a, "count": count})
+    return jsonify({"stats": stats})
+
+
+
+@app.route("/journal_closest_authors")
+def journal_closest_authors():
+    journal_id = request.args.get("journal_id", "")
+    k = int(request.args.get("k", 5))
+    # Utilise ton mapping source-id → issn puis issn → emb
+    issn = sourceid_to_issn.get(str(journal_id))
+    if not issn or issn not in journal_embs.index:
+        return jsonify([])  # Pas trouvé
+    emb = journal_embs.loc[issn].values.astype("float32").reshape(1, -1)
+    # On suppose que tu as déjà faiss_index, barycenters, author_names chargés (cf ton script)
+    D, I = faiss_index.search(emb, k)
+    out = []
+    for i, d in zip(I[0], D[0]):
+        out.append({"author": author_names[i], "distance": float(d)})
+    return jsonify(out)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)

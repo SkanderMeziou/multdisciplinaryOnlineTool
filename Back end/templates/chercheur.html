@@ -218,6 +218,7 @@
         mode: 'markers',
         type: 'scatter',
         name: `${name} — Journaux`,
+        customdata: data.journals.map(j => j.source_id),
         marker: {
           size: logs,           // ← taille variable
           symbol: 'square',
@@ -460,25 +461,102 @@ window.onclick = e => {
 const graphDiv = document.getElementById('graph');
 graphDiv.on('plotly_click', async eventData => {
   const pt = eventData.points[0];
-  // On récupère le nom depuis le texte du point (plus fiable que .name)
-  const author = pt.data.text ? pt.data.text[pt.pointIndex] : pt.data.name;
-  
-  if (!author || author.includes("— Journaux")) return;
-  if (pt.data.marker && pt.data.marker.symbol === "square") return;
 
-  // Récupère les infos du chercheur
+  // ==== Détection journal ====
+  let isJournal = false;
+  if (pt.data.marker) {
+    if (Array.isArray(pt.data.marker.symbol)) {
+      isJournal = pt.data.marker.symbol[pt.pointIndex] === "square";
+    } else {
+      isJournal = pt.data.marker.symbol === "square";
+    }
+  }
+
+  if (isJournal) {
+    // Cas journal : extrait source_id et affiche modal stats du journal
+    let sourceId = "";
+    if (pt.data.customdata && Array.isArray(pt.data.customdata)) {
+      sourceId = pt.data.customdata[pt.pointIndex];
+    }
+    let journalName = "";
+    if (pt.data.text && Array.isArray(pt.data.text)) {
+      journalName = pt.data.text[pt.pointIndex];
+    } else if (typeof pt.data.text === "string") {
+      journalName = pt.data.text;
+    } else if (pt.data.name) {
+      journalName = pt.data.name;
+    } else {
+      journalName = "";
+    }
+    if (!sourceId) {
+      alert("Impossible de retrouver le source-id du journal.");
+      return;
+    }
+    const authors = Array.from(selectedResearchers);
+    // Appelle le endpoint Flask
+    const res = await fetch(
+      `/journal_stats?journal_id=${encodeURIComponent(sourceId)}&authors=${encodeURIComponent(JSON.stringify(authors))}`
+    );
+    const data = await res.json();
+    // Affichage du modal info
+    let html = `<h3>${journalName} (source-id: ${sourceId})</h3>`;
+    html += "<ul>";
+    data.stats.forEach(r => {
+      html += `<li>${r.author} : ${r.count} publications</li>`;
+    });
+    html += "</ul>";
+    // Ajoute l'UI pour les auteurs les plus proches du journal
+    html += `
+      <label>Trouver les k auteurs les plus proches de ce journal :
+        <input type="number" min="1" max="100" id="kClosestJournal" value="5" style="width:50px" />
+        <button id="btnFindKClosest">Go</button>
+      </label>
+      <div id="closestAuthorsResult"></div>
+    `;
+    infoModal.querySelector('.modal-content').innerHTML = html;
+    infoModal.style.display = 'block';
+    // Gestion du bouton "Go"
+    document.getElementById("btnFindKClosest").onclick = async () => {
+      const k = +document.getElementById("kClosestJournal").value || 5;
+      const resp = await fetch(
+        `/journal_closest_authors?journal_id=${encodeURIComponent(sourceId)}&k=${k}`
+      );
+      const closest = await resp.json();
+      let resultHtml = "<ul>";
+      closest.forEach(r => {
+        resultHtml += `<li>${r.author} (distance = ${r.distance.toFixed(3)})</li>`;
+      });
+      resultHtml += "</ul>";
+      document.getElementById("closestAuthorsResult").innerHTML = resultHtml;
+    };
+    return; // Stop ici pour le cas journal
+  }
+
+  // ==== Cas chercheur ====
+  // On récupère le nom de l’auteur
+  let author = "";
+  if (pt.data.text && Array.isArray(pt.data.text)) {
+    author = pt.data.text[pt.pointIndex];
+  } else if (typeof pt.data.text === "string") {
+    author = pt.data.text;
+  } else if (pt.data.name) {
+    author = pt.data.name;
+  }
+  if (!author) return;
+
+  // Fetch infos de l’auteur pour afficher ses journaux
   const resp = await fetch(
     `/barycentre_auteur?name=${encodeURIComponent(author)}`
   );
   const data = await resp.json();
   if (data.error) {
-    return alert(data.error);
+    alert(data.error);
+    return;
   }
-
   // Remplit le modal
   infoNameEl.textContent = data.author_name || author;
   infoDiscEl.textContent = data.dominant_discipline || 'Inconnue';
-  const top10 = (data.journals||[])
+  const top10 = (data.journals || [])
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
@@ -492,6 +570,7 @@ graphDiv.on('plotly_click', async eventData => {
   // Affiche le modal
   infoModal.style.display = 'block';
 });
+
 
   </script>
 </body>
