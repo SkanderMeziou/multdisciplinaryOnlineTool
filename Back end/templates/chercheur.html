@@ -260,7 +260,7 @@
         const k = parseInt(item.querySelector(".k-input").value, 10) || 5;
         try {
           const resp = await fetch(
-            `/closer_researchers?name=${encodeURIComponent(name)}&k=${k}`
+            `/closer_researchers_faiss?name=${encodeURIComponent(name)}&k=${k}`
           );
           const list = await resp.json();
           if (list.error) return alert(list.error);
@@ -290,8 +290,20 @@
         }
       };
 
-      item.querySelector(".closer-j-btn").onclick = async () => {
+      item.querySelector(".closer-j-btn").onclick = async function () {
+        const btn = this;
         const k = parseInt(item.querySelector(".k-input").value, 10) || 5;
+
+        // Sauvegarde le texte original pour restaurer après
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.classList.add('proche-loading', 'loader-btn');
+        btn.innerHTML = `
+          <span class="loader-dot"></span>
+          <span class="loader-dot"></span>
+          <span class="loader-dot"></span>
+        `;
+
         try {
           const resp = await fetch(
             `/closer_researchers_jaccard?name=${encodeURIComponent(name)}&k=${k}`
@@ -299,7 +311,6 @@
           const list = await resp.json();
           if (list.error) return alert(list.error);
 
-          // Ajoute les points sur le graphe
           list.forEach(r => {
             if (r.x !== null && r.y !== null) {
               Plotly.addTraces("graph", {
@@ -310,7 +321,7 @@
                 name: `${name} ~Jaccard~> ${r.name}`,
                 marker: {
                   size: 12,
-                  color: "#ad3f82", // Couleur différente si tu veux
+                  color: "#ad3f82",
                   symbol: "diamond",
                   line: { width: 1, color: "#222" }
                 },
@@ -320,7 +331,7 @@
             }
           });
 
-          // Optionnel : affiche une alerte avec la liste comme avant
+          // Affiche les noms + scores
           let txt = "Plus proches selon Jaccard (similaire publications) :\n";
           list.forEach(r => {
             txt += `${r.name} (score = ${r.similarity.toFixed(3)})\n`;
@@ -330,6 +341,11 @@
         } catch (err) {
           console.error(err);
           alert("Impossible de récupérer les proches-J.");
+        } finally {
+          // Restaure le bouton
+          btn.disabled = false;
+          btn.classList.remove('proche-loading', 'loader-btn');
+          btn.innerHTML = "Proche-J";
         }
       };
 

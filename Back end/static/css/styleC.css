@@ -349,6 +349,7 @@ input[type="number"]{
     padding: 6px;
     border: none;
     margin: 5px;
+    width: 64px;
 }
 
 #filter_button{
@@ -384,6 +385,7 @@ input[type="number"]{
     width: 100%; height: 100%;
     overflow: auto;           
     background-color: rgba(0,0,0,0.4);
+    border-radius: 8px;
   }
   .modal-content {
     background-color: #fefefe;
@@ -404,4 +406,43 @@ input[type="number"]{
   .close:focus {
     color: #000;
     text-decoration: none;
+  }
+
+  .loader-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 44px; /* Pour éviter que le bouton ne rétrécisse trop */
+    transition: ease-in-out;
+  }
+  
+  .loader-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin: 0 1px;
+    border-radius: 50%;
+    background: #fff;
+    opacity: 0.7;
+    animation: bounce 0.8s infinite alternate;
+  }
+  
+  .loader-dot:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+  .loader-dot:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  .proche-loading {
+    background-color:  #351e2c;
+    color: #fff !important;
+    transition: background-color 0.2s;
+  }
+
+  .closer-j-btn{
+    width:65px;
+    height:27px;
+    transition: background-color 0.2s, width 0.2s;
   }

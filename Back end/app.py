@@ -13,6 +13,7 @@ import traceback
 from unidecode import unidecode
 import os
 from multiprocessing import Pool
+import pickle
 
 app = Flask(__name__)
 REPORTS_FILE = "reports.json"
@@ -178,6 +179,29 @@ df_jaccard    = datasets["jaccard"]
 df_pubs       = datasets["researchers"]
 df_umap       = datasets["journal_positions"]
 
+#faiss
+import faiss
+
+# Initialisation
+faiss_index = None
+barycenters = None
+author_names = None
+
+def load_faiss_index():
+    global faiss_index, barycenters, author_names
+    faiss_pkl = input_dir / "faiss_barycenters.pkl"
+    with open(faiss_pkl, "rb") as f:
+        data = pickle.load(f)
+        barycenters = np.array(data["barycenters"]).astype("float32")
+        author_names = data["author_names"]
+    print(f"[FAISS] Barycentres chargés : {len(author_names)} chercheurs")
+    d = barycenters.shape[1]
+    faiss_index = faiss.IndexFlatL2(d)
+    faiss_index.add(barycenters)
+    print(f"[FAISS] Index FAISS construit avec {len(author_names)} vecteurs.")
+
+# Charger l’index FAISS au démarrage
+load_faiss_index()
 # mapping source-id → ISSN/EISSN
 mapping_src2issn = df_umap.set_index('source-id')['id'].astype(str).to_dict()
 print("Datasets chargés avec succès :", list(datasets.keys()))
@@ -476,7 +500,7 @@ def update_graph():
                 legendgroup='2',
             ),
             row=2, col=1
-        )
+    )
     fig_stats.update_layout(
         title="Statistiques sur la population choisie",
         xaxis1_title="Nombre de publications",
@@ -802,11 +826,61 @@ def get_closer_researchers_jaccard():
             "y": y,
         })
     print("fin")
-    print(f"[JACCARD] 8. Boucle des similarités Jaccard sur {filtered_journals.shape[0]} chercheurs en {time.time() - t_loop:.3f}s")
+    print(f"[JACCARD] 8. Boucle des similarités de Jaccard sur {filtered_journals.shape[0]} chercheurs en {time.time() - t_loop:.3f}s")
 
     results = sorted(results, key=lambda r: -r["similarity"])[:k]
     print(f"[JACCARD] 9. Tri et retour final en {time.time() - t0:.3f}s")
     return jsonify(results)
 
+@app.route("/closer_researchers_faiss")
+def closer_researchers_faiss():
+    global faiss_index, barycenters, author_names
+
+    name = request.args.get("name", "").strip()
+    k = int(request.args.get("k", 10))
+
+    if not name:
+        return jsonify({"error": "Paramètre 'name' requis"}), 400
+
+    # Chercheur FAISS
+    try:
+        idx = author_names.index(name)
+    except ValueError:
+        return jsonify({"error": f"Chercheur '{name}' non trouvé"}), 404
+
+    # Lookup FAISS
+    query_bary = barycenters[idx].reshape(1, -1).astype('float32')
+    D, I = faiss_index.search(query_bary, k+1)
+    nearest_idx = I[0][1:k+1]
+    nearest_authors = [author_names[i] for i in nearest_idx]
+    nearest_dists = [float(d) for d in D[0][1:k+1]]
+
+    # Lookup coordonnées UMAP (DataFrame chargé UNE FOIS, pas à chaque appel)
+    df_positions = datasets["searchers_positions"]
+    # Normalisation au chargement ! (jamais dans la route)
+    if "norm_name" not in df_positions.columns:
+        df_positions["norm_name"] = (
+            df_positions["author_name"].fillna("").map(lambda s: unidecode(s).casefold().strip())
+        )
+    df_unique = df_positions.drop_duplicates("norm_name", keep="first")
+    pos_dict = df_unique.set_index("norm_name")[["x", "y"]].to_dict(orient="index")
+
+    # Formatage résultat
+    def norm_name(nom):
+        return unidecode(nom).casefold().strip()
+
+    results = []
+    for n, d in zip(nearest_authors, nearest_dists):
+        coords = pos_dict.get(norm_name(n), {"x": None, "y": None})
+        results.append({
+            "name": n,
+            "distance": d,
+            "x": coords["x"],
+            "y": coords["y"]
+        })
+
+    return jsonify(results)
+
+
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
