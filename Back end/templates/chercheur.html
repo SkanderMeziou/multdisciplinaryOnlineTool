@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <title>📍 Positionner un chercheur</title>
+  <div class="note-utilisation">
+    ℹ️ Seuls les chercheurs ayant publié au moins une fois en France sont pris en compte. Les publications sont limitées à l’année <strong>2023</strong>.
+  </div>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <!-- on injecte la liste des auteurs pour le random pick -->
   <script>
@@ -35,7 +38,14 @@
                placeholder="Tapez pour rechercher..." />
         <button id="clear_search" class="remove-btn">✕</button>
       </div>
+      <div id="loadingResearcher" class="loader" style="display:none;">
+        <div></div><div></div><div></div>
+      </div>
       <div id="results"></div>
+      <p class="note-utilisation">
+        🔍 Vous pouvez rechercher un chercheur par son nom ou <i>Nom + Initiale du prénom</i>.<br>
+        Exemple : <code>Durand J</code> pour Jean Durand.
+      </p>
       <button id="clear_all">Tout supprimer</button>
 
       <!-- liste des chercheurs sélectionnés -->
@@ -184,15 +194,28 @@
 
   // ================ SÉLECTION / DE-SÉLECTION ================
   async function selectResearcher(name) {
-    if (selectedResearchers.has(name)) return;
+    if (selectedResearchers.has(name)) {
+      alert(`${name} est déjà sélectionné.`);
+      return;
+    }
+
+
+    // Afficher le loader de chargement
+    document.getElementById("loadingResearcher").style.display = "flex";
+
     // appelle ton endpoint
     const resp = await fetch(
       `/barycentre_auteur?name=${encodeURIComponent(name)}`
     );
     const data = await resp.json();
+
+    // Cacher le loader de chargement une fois la requête terminée
+    document.getElementById("loadingResearcher").style.display = "none";
+
     if (data.error) {
       return alert(data.error);
     }
+
     // trace chercheur + journaux
     Plotly.addTraces("graph", {
       x:[data.x], y:[data.y],
@@ -204,14 +227,11 @@
       },
       text:[name], textposition:'top center'
     });
+
     if (data.journals) {
-      // 1) on calcule une taille log1p pour chaque j.count
       const counts   = data.journals.map(j => j.count);
       const logs     = counts.map(c => Math.round(10*(Math.log10(c+1))+3));
-      const maxLog   = Math.max(...logs);
-      const minSize  = 2, maxSize = 200;
 
-      // 2) on trace avec ces tailles dynamiques
       Plotly.addTraces("graph", {
         x: data.journals.map(j => j.x),
         y: data.journals.map(j => j.y),
@@ -220,139 +240,94 @@
         name: `${name} — Journaux`,
         customdata: data.journals.map(j => j.source_id),
         marker: {
-          size: logs,           // ← taille variable
+          size: logs,
           symbol: 'square',
           color: data.journals.map(j => getColor(j.discipline))
         },
-      hoverinfo: 'text',
-      hovertext: data.journals.map(j =>
-      `${j.name}<br>${name} : ${j.count} fois<br>` +
-      `Discipline : ${j.discipline}`
-    )
-  });
-}
+        hoverinfo: 'text',
+        hovertext: data.journals.map(j =>
+          `${j.name}<br>${name} : ${j.count} fois<br>` +
+          `Discipline : ${j.discipline}`
+        )
+      });
+    }
+
     // mémorise
     selectedResearchers.add(name);
     updateSelectedList();
     updateStats();
   }
 
+
   function updateSelectedList() {
-    // Vider puis reconstruire la liste
-    selectedDiv.innerHTML = "";
-    selectedResearchers.forEach(name => {
-      const item = document.createElement("div");
-      item.className = "selected-item";
-      item.innerHTML = `
-        <span class="sel-name">${name}</span>
-        <button class="remove-btn" data-name="${name}">✕</button>
-        <input type="number" class="k-input" min="1" value="5" title="Nombre de voisins" />
-        <button class="closer-btn">Proches</button>
-        <button class="closer-j-btn">Proche-J</button>
-      `;
+  // Vider puis reconstruire la liste
+  selectedDiv.innerHTML = "";
+  selectedResearchers.forEach(name => {
+    const item = document.createElement("div");
+    item.className = "selected-item";
+    item.innerHTML = `
+      <span class="sel-name">${name}</span>
+      <button class="remove-btn" data-name="${name}">✕</button>
+      <input type="number" class="k-input" min="1" value="5" title="Nombre de voisins" />
+      <button class="closer-btn">
+        <span class="btn-text">Proches</span>
+        <span class="loader-dot"></span>
+      </button>
+    `;
 
-      // Suppression du chercheur
-      item.querySelector(".remove-btn").onclick = () => {
-        removeResearcher(name);
-      };
+    // Suppression du chercheur
+    item.querySelector(".remove-btn").onclick = () => {
+      removeResearcher(name);
+    };
 
-      // Afficher les k plus proches de ce chercheur
-      item.querySelector(".closer-btn").onclick = async () => {
-        const k = parseInt(item.querySelector(".k-input").value, 10) || 5;
-        try {
-          const resp = await fetch(
-            `/closer_researchers_faiss?name=${encodeURIComponent(name)}&k=${k}`
-          );
-          const list = await resp.json();
-          if (list.error) return alert(list.error);
+    // Afficher les k plus proches de ce chercheur
+    item.querySelector(".closer-btn").onclick = async () => {
+      const k = parseInt(item.querySelector(".k-input").value, 10) || 5;
+      const button = item.querySelector(".closer-btn");
+      const btnText = button.querySelector(".btn-text");
+      const loader = button.querySelector(".loader-dot");
 
-          // Pour chaque voisin, on trace un point
-          list.forEach(r => {
-            Plotly.addTraces("graph", {
-              x: [r.x],
-              y: [r.y],
-              mode: "markers+text",
-              type: "scatter",
-              name: `${name} → ${r.name}`,
-              marker: {
-                size: 12,
-                color: "#444",
-                symbol: "diamond",
-                line: { width: 1, color: "#222" }
-              },
-              text: [r.name],
-              textposition: "bottom center"
-            });
+      // Afficher le loader et cacher le texte
+      button.classList.add('proche-loading'); // Appliquer la classe de chargement
+
+      try {
+        const resp = await fetch(
+          `/closer_researchers_faiss?name=${encodeURIComponent(name)}&k=${k}`
+        );
+        const list = await resp.json();
+        if (list.error) return alert(list.error);
+
+        // Pour chaque voisin, on trace un point
+        list.forEach(r => {
+          Plotly.addTraces("graph", {
+            x: [r.x],
+            y: [r.y],
+            mode: "markers+text",
+            type: "scatter",
+            name: `${name} → ${r.name}`,
+            marker: {
+              size: 12,
+              color: "#444",
+              symbol: "diamond",
+              line: { width: 1, color: "#222" }
+            },
+            text: [r.name],
+            textposition: "bottom center"
           });
+        });
 
-        } catch (err) {
-          console.error(err);
-          alert("Impossible de récupérer les proches.");
-        }
-      };
+      } catch (err) {
+        console.error(err);
+        alert("Impossible de récupérer les proches.");
+      } finally {
+        // Retirer la classe de chargement et réafficher le texte
+        button.classList.remove('proche-loading'); // Cacher le loader et réafficher le texte
+      }
+    };
 
-      item.querySelector(".closer-j-btn").onclick = async function () {
-        const btn = this;
-        const k = parseInt(item.querySelector(".k-input").value, 10) || 5;
-
-        // Sauvegarde le texte original pour restaurer après
-        const originalHtml = btn.innerHTML;
-        btn.disabled = true;
-        btn.classList.add('proche-loading', 'loader-btn');
-        btn.innerHTML = `
-          <span class="loader-dot"></span>
-          <span class="loader-dot"></span>
-          <span class="loader-dot"></span>
-        `;
-
-        try {
-          const resp = await fetch(
-            `/closer_researchers_jaccard?name=${encodeURIComponent(name)}&k=${k}`
-          );
-          const list = await resp.json();
-          if (list.error) return alert(list.error);
-
-          list.forEach(r => {
-            if (r.x !== null && r.y !== null) {
-              Plotly.addTraces("graph", {
-                x: [r.x],
-                y: [r.y],
-                mode: "markers+text",
-                type: "scatter",
-                name: `${name} ~Jaccard~> ${r.name}`,
-                marker: {
-                  size: 12,
-                  color: "#ad3f82",
-                  symbol: "diamond",
-                  line: { width: 1, color: "#222" }
-                },
-                text: [r.name],
-                textposition: "bottom center"
-              });
-            }
-          });
-
-          // Affiche les noms + scores
-          let txt = "Plus proches selon Jaccard (similaire publications) :\n";
-          list.forEach(r => {
-            txt += `${r.name} (score = ${r.similarity.toFixed(3)})\n`;
-          });
-          alert(txt);
-
-        } catch (err) {
-          console.error(err);
-          alert("Impossible de récupérer les proches-J.");
-        } finally {
-          // Restaure le bouton
-          btn.disabled = false;
-          btn.classList.remove('proche-loading', 'loader-btn');
-          btn.innerHTML = "Proche-J";
-        }
-      };
-
-      selectedDiv.appendChild(item);
-    });
-  }
+    selectedDiv.appendChild(item);
+  });
+}
 
   function removeResearcher(name) {
     selectedResearchers.delete(name);
@@ -456,7 +431,7 @@ window.onclick = e => {
     infoModal.style.display = 'none';
   }
 };
-
+let isJournal = false;
 // Écouteur de clic sur le graphe Plotly
 const graphDiv = document.getElementById('graph');
 graphDiv.on('plotly_click', async eventData => {
@@ -472,8 +447,8 @@ graphDiv.on('plotly_click', async eventData => {
     }
   }
 
+  // ====== CASE JOURNAL ======
   if (isJournal) {
-    // Cas journal : extrait source_id et affiche modal stats du journal
     let sourceId = "";
     if (pt.data.customdata && Array.isArray(pt.data.customdata)) {
       sourceId = pt.data.customdata[pt.pointIndex];
@@ -485,28 +460,25 @@ graphDiv.on('plotly_click', async eventData => {
       journalName = pt.data.text;
     } else if (pt.data.name) {
       journalName = pt.data.name;
-    } else {
-      journalName = "";
     }
     if (!sourceId) {
       alert("Impossible de retrouver le source-id du journal.");
       return;
     }
     const authors = Array.from(selectedResearchers);
-    // Appelle le endpoint Flask
     const res = await fetch(
       `/journal_stats?journal_id=${encodeURIComponent(sourceId)}&authors=${encodeURIComponent(JSON.stringify(authors))}`
     );
     const data = await res.json();
-    // Affichage du modal info
-    let html = `<h3>${journalName} (source-id: ${sourceId})</h3>`;
-    html += "<ul>";
-    data.stats.forEach(r => {
-      html += `<li>${r.author} : ${r.count} publications</li>`;
-    });
-    html += "</ul>";
-    // Ajoute l'UI pour les auteurs les plus proches du journal
-    html += `
+    // --- RECONSTRUIT LE MODAL COMPLET POUR JOURNAL ---
+    let html = `
+      <span id="infoClose" class="close">&times;</span>
+      <h2>${journalName}</h2>
+      <p><strong>Source-ID :</strong> ${sourceId}</p>
+      <h3>Stats sur ce journal</h3>
+      <ul>
+        ${data.stats.map(r => `<li>${r.author} : ${r.count} publications</li>`).join('')}
+      </ul>
       <label>Trouver les k auteurs les plus proches de ce journal :
         <input type="number" min="1" max="100" id="kClosestJournal" value="5" style="width:50px" />
         <button id="btnFindKClosest">Go</button>
@@ -515,7 +487,6 @@ graphDiv.on('plotly_click', async eventData => {
     `;
     infoModal.querySelector('.modal-content').innerHTML = html;
     infoModal.style.display = 'block';
-    // Gestion du bouton "Go"
     document.getElementById("btnFindKClosest").onclick = async () => {
       const k = +document.getElementById("kClosestJournal").value || 5;
       const resp = await fetch(
@@ -529,11 +500,14 @@ graphDiv.on('plotly_click', async eventData => {
       resultHtml += "</ul>";
       document.getElementById("closestAuthorsResult").innerHTML = resultHtml;
     };
+    // Replug la croix
+    document.getElementById("infoClose").onclick = () => {
+      infoModal.style.display = 'none';
+    };
     return; // Stop ici pour le cas journal
   }
 
-  // ==== Cas chercheur ====
-  // On récupère le nom de l’auteur
+  // ====== CASE CHERCHEUR ======
   let author = "";
   if (pt.data.text && Array.isArray(pt.data.text)) {
     author = pt.data.text[pt.pointIndex];
@@ -553,23 +527,29 @@ graphDiv.on('plotly_click', async eventData => {
     alert(data.error);
     return;
   }
-  // Remplit le modal
-  infoNameEl.textContent = data.author_name || author;
-  infoDiscEl.textContent = data.dominant_discipline || 'Inconnue';
-  const top10 = (data.journals || [])
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
-
-  infoJournalsEl.innerHTML = '';
-  top10.forEach(j => {
-    const li = document.createElement('li');
-    li.textContent = `${j.name || j.journal_id} : ${j.count} publications`;
-    infoJournalsEl.appendChild(li);
-  });
-
-  // Affiche le modal
+  // --- RECONSTRUIT LE MODAL COMPLET POUR CHERCHEUR ---
+  let html = `
+    <span id="infoClose" class="close">&times;</span>
+    <h2 id="infoName">${data.author_name || author}</h2>
+    <p><strong>Discipline :</strong> <span id="infoDiscipline">${data.dominant_discipline || 'Inconnue'}</span></p>
+    <h3>Top 10 Journaux</h3>
+    <ul id="infoJournals">
+      ${
+        (data.journals || [])
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10)
+        .map(j => `<li>${j.name || j.journal_id} : ${j.count} publications</li>`)
+        .join('')
+      }
+    </ul>
+  `;
+  infoModal.querySelector('.modal-content').innerHTML = html;
   infoModal.style.display = 'block';
+  document.getElementById("infoClose").onclick = () => {
+    infoModal.style.display = 'none';
+  };
 });
+
 
 
   </script>
