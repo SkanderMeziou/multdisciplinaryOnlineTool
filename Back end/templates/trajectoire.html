@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>📈 Trajectoire disciplinaire d'un chercheur</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script>window.authors = {{ authors | tojson }};</script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styleC.css') }}">
+</head>
+<body>
+  <div class="container">
+    <!-- Colonne gauche -->
+    <div id="researchPart">
+      <h1>📈 Trajectoire disciplinaire</h1>
+      <a href="/"><button>← Retour à la recherche</button></a>
+
+      <div id="search_container">
+        <label for="search_researcher">Nom du chercheur :</label>
+        <input type="text" id="search_researcher" placeholder="Tapez pour rechercher..." />
+        <button id="clear_search" class="remove-btn">✕</button>
+      </div>
+
+      <div id="loadingResearcher" class="loader" style="display:none;">
+        <div></div><div></div><div></div>
+      </div>
+
+      <div id="results"></div>
+
+      <label for="window">Fenêtre glissante (0 = cumulatif) :</label>
+      <input type="number" id="window" min="0" value="5" style="width: 60px;">
+
+      <button id="fetchBtn">📊 Afficher la trajectoire</button>
+
+      <p class="note-utilisation">
+        📌 Le graphe affiche l'évolution des disciplines d'un chercheur selon ses publications.
+      </p>
+    </div>
+
+    <!-- Colonne droite -->
+    <div id="graphPart">
+      <h1>Carte temporelle</h1>
+      <div id="plot" style="height: 700px;"></div>
+    </div>
+  </div>
+
+  <script>
+    let searchTimeout = null;
+    const input       = document.getElementById("search_researcher");
+    const resultsDiv  = document.getElementById("results");
+    const loader      = document.getElementById("loadingResearcher");
+    const plotDiv     = document.getElementById("plot");
+
+    // ========== Recherche dynamique ==========
+    input.addEventListener("keyup", () => {
+      clearTimeout(searchTimeout);
+      const query = input.value.trim();
+      if (query.length < 2) {
+        resultsDiv.innerHTML = "";
+        return;
+      }
+      resultsDiv.innerHTML = '<div class="loader"><div></div><div></div><div></div></div>';
+      searchTimeout = setTimeout(async () => {
+        try {
+          const res = await fetch(`/search_researcher?q=${encodeURIComponent(query)}`);
+          const data = await res.json();
+          resultsDiv.innerHTML = "";
+          data.forEach(name => {
+            const div = document.createElement("div");
+            div.textContent = name;
+            div.className = "resultatTheses";
+            div.onclick = () => {
+              input.value = name;
+              resultsDiv.innerHTML = "";
+            };
+            resultsDiv.appendChild(div);
+          });
+        } catch (err) {
+          resultsDiv.innerHTML = '<p style="color:red">Erreur de connexion</p>';
+        }
+      }, 400);
+    });
+
+    document.getElementById("clear_search").onclick = () => {
+      input.value = "";
+      resultsDiv.innerHTML = "";
+    };
+
+    // ========== Récupération et affichage ==========
+    document.getElementById("fetchBtn").onclick = async () => {
+      const name = input.value.trim();
+      const windowSize = parseInt(document.getElementById("window").value);
+      if (!name) return alert("Veuillez entrer un nom.");
+
+      loader.style.display = "flex";
+      try {
+        const res = await fetch(`/trajectory_plot?name=${encodeURIComponent(name)}&window=${windowSize}`);
+        const data = await res.json();
+        if (data.error) return alert("Erreur : " + data.error);
+        Plotly.newPlot(plotDiv, data.data, data.layout || {});
+      } catch (err) {
+        alert("Erreur serveur. Détails : " + err.message);
+      } finally {
+        loader.style.display = "none";
+      }
+    };
+  </script>
+</body>
+</html>

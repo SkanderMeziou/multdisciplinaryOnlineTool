@@ -1,4 +1,5 @@
 import numpy as np
+from collections import defaultdict
 from flask import Flask, request, render_template, jsonify
 import pandas as pd
 from pathlib import Path
@@ -12,6 +13,8 @@ import logging
 import traceback
 from unidecode import unidecode
 import os
+import matplotlib
+import matplotlib.cm
 from multiprocessing import Pool
 import pickle
 
@@ -223,6 +226,50 @@ if journals_emb_file.exists():
 else:
     journal_embs = pd.DataFrame()
 
+# Mapping des disciplines vers leurs coordonnées
+coord_cols = [c for c in coordinates_df.columns]
+disc_to_coord = {
+    row["disc"]: row[coord_cols].to_numpy()
+    for _, row in datasets["coordinates"].iterrows()
+}
+# === Chargement author_publications pour la trajectoire disciplinaire ===
+author_publications_file = input_dir / "author_publications.parquet"
+if author_publications_file.exists():
+    df_pub = pd.read_parquet(author_publications_file)
+    print("✅ Fichier author_publications chargé :", df_pub.shape)
+else:
+    print("⚠️ Fichier author_publications.parquet manquant :", author_publications_file)
+    df_pub = pd.DataFrame()
+
+def get_author_publications_fast(author_name):
+    author_name_norm = unidecode(author_name.strip().lower())
+    if not author_name_norm:
+        return {}
+    first_letter = author_name_norm.split()[0][0].upper()
+    split_dir = input_dir / "author_publications_dir"
+    split_file = split_dir / f"{first_letter}.parquet"
+    print("Recherche pour:", author_name_norm, "dans", split_file)
+    if not split_file.exists():
+        print("Fichier inexistant !")
+        return {}
+
+    df_letter = pd.read_parquet(split_file)
+    print("Colonnes:", df_letter.columns)
+    # attention à la colonne : "author" ou "author_name" ?
+    col = "author"
+    if "author" not in df_letter.columns and "author_name" in df_letter.columns:
+        col = "author_name"
+    df_letter["author_norm"] = df_letter[col].apply(lambda s: unidecode(s.strip().lower()))
+    print("Noms dans le fichier :", df_letter["author_norm"].unique()[:10])
+    df_filtered = df_letter[df_letter["author_norm"] == author_name_norm]
+    print("Lignes trouvées :", len(df_filtered))
+    pub_dict = defaultdict(lambda: defaultdict(int))
+    for _, row in df_filtered.iterrows():
+        discipline = row["discipline"]
+        year = row["year"]
+        if pd.notnull(year) and pd.notnull(discipline):
+            pub_dict[int(year)][discipline] += 1
+    return pub_dict
 #-----------------------------------------------------------------------------------------------------------------------------
 #-----------------------------------------------application et routes---------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -580,6 +627,15 @@ def chercheur_page():
     # Liste alphabétique des auteurs
     author_list = sorted(researchers["author_name"].unique())
     return render_template("chercheur.html", authors=author_list)
+
+@app.route("/trajectory")
+def trajectory_page():
+    researchers = datasets.get("researchers")
+    if researchers is None:
+        return "Aucune donnée sur les chercheurs chargée"
+    
+    author_list = sorted(researchers["author_name"].unique())
+    return render_template("trajectoire.html", authors=author_list)
 
 @app.route("/barycentre_auteur")
 def barycentre_auteur():
@@ -940,6 +996,120 @@ def journal_closest_authors():
     for i, d in zip(I[0], D[0]):
         out.append({"author": author_names[i], "distance": float(d)})
     return jsonify(out)
+
+@app.route("/trajectory_plot")
+def trajectory_plot():
+    author = request.args.get("name", "")
+    window_size = request.args.get("window", default=None, type=int)
+    if window_size == 0:
+        window_size = None
+
+    try:
+        # --- Utilise exactement ta logique locale ---
+        pub_data = get_author_publications_fast(author)
+        if not pub_data:
+            return jsonify({"error": f"Aucune publication trouvée pour {author}"}), 404
+
+        trajectory = []
+        all_years = sorted(pub_data)
+
+        for idx, year in enumerate(all_years):
+            if window_size is None:
+                selected_years = all_years[:idx + 1]
+            else:
+                selected_years = [y for y in all_years if year - window_size < y <= year]
+            if not selected_years:
+                continue
+
+            aggregated = defaultdict(int)
+            for y in selected_years:
+                for disc, count in pub_data[y].items():
+                    aggregated[disc] += count
+
+            total = sum(aggregated.values())
+            coords = np.array([
+                disc_to_coord[disc] * weight / total
+                for disc, weight in aggregated.items()
+                if disc in disc_to_coord
+            ])
+            if len(coords) == 0:
+                continue
+            bary = np.sum(coords, axis=0)
+            trajectory.append((year, bary))
+
+        fig = go.Figure()
+
+        for disc, coord in disc_to_coord.items():
+            fig.add_trace(go.Scatter(
+                x=[coord[0]],
+                y=[coord[1]],
+                mode='markers+text',
+                marker=dict(size=8, color='lightgray'),
+                text=[disc],
+                textposition='top center',
+                showlegend=False
+            ))
+
+        n_seg = len(trajectory) - 1
+        if n_seg > 0:
+            cmap = matplotlib.cm.get_cmap('viridis', n_seg + 1)
+            for i in range(n_seg):
+                x0, y0 = np.array(trajectory[i][1]).flatten()[:2]
+                x1, y1 = np.array(trajectory[i+1][1]).flatten()[:2]
+                color = matplotlib.colors.rgb2hex(cmap(i))
+                year_label = str(trajectory[i+1][0])[-2:]
+
+                fig.add_trace(go.Scatter(
+                    x=[x0, x1],
+                    y=[y0, y1],
+                    mode="lines+markers+text",
+                    line=dict(color=color, width=4),
+                    marker=dict(size=12, color=color),
+                    text=[None, year_label],
+                    textposition='bottom right',
+                    showlegend=False,
+                    hoverinfo="text",
+                ))
+        else:
+            # Si un seul point, on affiche quand même
+            x0, y0 = np.array(trajectory[0][1]).flatten()[:2]
+            fig.add_trace(go.Scatter(
+                x=[x0],
+                y=[y0],
+                mode="markers+text",
+                marker=dict(size=12, color='blue'),
+                text=[str(trajectory[0][0])[-2:]],
+                textposition='bottom right',
+                showlegend=False,
+            ))
+
+        for i in range(len(trajectory) - 1):
+            fig.add_annotation(
+                ax=trajectory[i][1][0],
+                ay=trajectory[i][1][1],
+                x=trajectory[i+1][1][0],
+                y=trajectory[i+1][1][1],
+                showarrow=True,
+                arrowhead=3,
+                arrowsize=1,
+                arrowwidth=2,
+                arrowcolor="blue"
+            )
+
+        mode_label = f" (fenêtre {window_size} ans)" if window_size else " (cumulatif)"
+        fig.update_layout(
+            title=f"Trajectoire disciplinaire de {author.title()}{mode_label}",
+            xaxis=dict(showgrid=False, zeroline=False, visible=False),
+            yaxis=dict(showgrid=False, zeroline=False, visible=False),
+            legend=dict(x=0.02, y=0.98)
+        )
+        # --- NE PAS FAIRE .show() EN FLASK ---
+        return fig.to_json()
+
+    except Exception as e:
+        import traceback
+        return jsonify({"error": f"{str(e)}\n{traceback.format_exc()}"}), 500
+
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
